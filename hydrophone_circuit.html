@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hydrophone Preamp Circuit Builder Simulator</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #111827;
+    --panel-2: #1f2937;
+    --paper: #f8fafc;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #334155;
+    --accent: #2563eb;
+    --accent-2: #7c3aed;
+    --good: #15803d;
+    --warn: #b45309;
+    --bad: #b91c1c;
+    --hot: #dc2626;
+    --source: #7c3aed;
+    --gate: #2563eb;
+    --signal: #ea580c;
+    --ground: #059669;
+    --wire: #334155;
+    --current: #f97316;
+    --electron: #38bdf8;
+    --shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+    --radius: 18px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #e5e7eb;
+    background: radial-gradient(circle at top left, #1d4ed8 0, transparent 30rem),
+                radial-gradient(circle at bottom right, #6d28d9 0, transparent 26rem),
+                var(--bg);
+  }
+
+  header {
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(15, 23, 42, 0.84);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+
+  header h1 {
+    margin: 0 0 4px;
+    font-size: clamp(1.25rem, 2vw, 1.8rem);
+    letter-spacing: -0.02em;
+  }
+
+  header p {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.96rem;
+    max-width: 1100px;
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: minmax(290px, 370px) minmax(620px, 1fr) minmax(300px, 390px);
+    gap: 16px;
+    padding: 16px;
+    align-items: start;
+  }
+
+  @media (max-width: 1180px) {
+    main { grid-template-columns: 330px minmax(620px, 1fr); }
+    aside.right { grid-column: 1 / -1; }
+  }
+
+  @media (max-width: 920px) {
+    main { grid-template-columns: 1fr; }
+    .workbench { min-height: 0; }
+    #svgWrap { min-height: 520px; }
+  }
+
+  .card {
+    background: rgba(17, 24, 39, 0.92);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .panel h2, .panel h3 {
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+
+  .panel h2 { font-size: 1.05rem; }
+  .panel h3 { font-size: 0.96rem; color: #e2e8f0; }
+
+  .small { color: #cbd5e1; font-size: 0.9rem; line-height: 1.4; }
+  .tiny { color: #94a3b8; font-size: 0.78rem; line-height: 1.35; }
+  a { color: #93c5fd; }
+
+  .button-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+  }
+
+  button, select {
+    border: 1px solid rgba(255,255,255,0.14);
+    background: #243041;
+    color: #f8fafc;
+    border-radius: 12px;
+    padding: 9px 11px;
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+  }
+
+  button:hover, select:hover { background: #334155; transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button.primary { background: #1d4ed8; border-color: #60a5fa; }
+  button.primary:hover { background: #2563eb; }
+  button.good { background: #166534; border-color: #86efac; }
+  button.warn { background: #92400e; border-color: #fbbf24; }
+  button.danger { background: #7f1d1d; border-color: #fca5a5; }
+  button.ghost { background: transparent; }
+  button.full { width: 100%; }
+
+  .palette-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 9px;
+    text-align: left;
+    min-height: 52px;
+  }
+  .palette-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    font-weight: 700;
+  }
+
+  .section {
+    border-top: 1px solid rgba(255,255,255,0.10);
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+
+  .workbench {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    align-self: start;
+  }
+
+  @media (min-width: 921px) {
+    aside.left, aside.right {
+      align-self: start;
+      max-height: calc(100vh - 112px);
+      overflow: auto;
+    }
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+    background: rgba(15, 23, 42, 0.5);
+    flex-wrap: wrap;
+  }
+
+  .toolbar .spacer { flex: 1; }
+
+  .status-pill {
+    border-radius: 999px;
+    padding: 7px 11px;
+    font-size: 0.84rem;
+    border: 1px solid rgba(255,255,255,0.13);
+    color: #e2e8f0;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .status-pill.good { color: #bbf7d0; border-color: #22c55e; background: rgba(22, 101, 52, 0.25); }
+  .status-pill.bad { color: #fecaca; border-color: #ef4444; background: rgba(127, 29, 29, 0.25); }
+  .status-pill.warn { color: #fde68a; border-color: #f59e0b; background: rgba(146, 64, 14, 0.25); }
+
+  #svgWrap {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 1100 / 720;
+    min-height: 520px;
+    max-height: calc(100vh - 178px);
+    background: #f8fafc;
+    position: relative;
+    overflow: hidden;
+  }
+
+  svg#board {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .grid-line { stroke: #e2e8f0; stroke-width: 1; }
+  .grid-major { stroke: #cbd5e1; stroke-width: 1.2; }
+  .ghost { opacity: 0.13; pointer-events: none; }
+  .ghost text { fill: #0f172a; }
+  .ghost .wire { stroke-dasharray: 5 9; }
+
+  .wire-hit { stroke: transparent; stroke-width: 18; fill: none; cursor: pointer; }
+  .wire {
+    fill: none;
+    stroke: var(--wire);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .wire.selected { stroke: var(--accent); stroke-width: 6; }
+  .wire.live {
+    stroke: var(--current);
+    stroke-dasharray: 12 10;
+    animation: dash 0.55s linear infinite;
+  }
+  .wire.live.reverse { animation-direction: reverse; }
+  .wire.signalPulse {
+    stroke: var(--electron);
+    stroke-dasharray: 5 13;
+    animation: dash 0.9s linear infinite;
+  }
+  .wire-end-stub {
+    fill: none;
+    stroke: var(--wire);
+    stroke-width: 5.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+  }
+  .wire-end-stub.selected { stroke: var(--accent); }
+  .wire-end-stub.live {
+    stroke: var(--current);
+    stroke-dasharray: 12 10;
+    animation: dash 0.55s linear infinite;
+  }
+  .wire-end-stub.signalPulse {
+    stroke: var(--electron);
+    stroke-dasharray: 5 13;
+    animation: dash 0.9s linear infinite;
+  }
+
+  @keyframes dash { to { stroke-dashoffset: -44; } }
+
+  .component { cursor: grab; }
+  .component.dragging { cursor: grabbing; opacity: 0.88; }
+  .component .body {
+    fill: #ffffff;
+    stroke: #475569;
+    stroke-width: 2;
+    filter: drop-shadow(0 5px 7px rgba(15,23,42,0.10));
+  }
+  .component.selected .body { stroke: var(--accent); stroke-width: 3; }
+  .component text {
+    fill: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .component .subtext { font-size: 11px; font-weight: 600; fill: #475569; }
+  .component .pin-label { font-size: 11px; fill: #1f2937; }
+  .terminal {
+    fill: #f8fafc;
+    stroke: #0f172a;
+    stroke-width: 2.4;
+    cursor: crosshair;
+  }
+  .terminal:hover { fill: #fef08a; stroke-width: 3.1; }
+  .terminal.connected { stroke-width: 3.2; filter: drop-shadow(0 0 2px rgba(15, 23, 42, 0.38)); }
+  .terminal.selected { fill: #60a5fa; stroke: #1d4ed8; stroke-width: 4; }
+  .terminal.node-gate { fill: #dbeafe; stroke: var(--gate); }
+  .terminal.node-source { fill: #ede9fe; stroke: var(--source); }
+  .terminal.node-signal { fill: #ffedd5; stroke: var(--signal); }
+  .terminal.node-ground { fill: #dcfce7; stroke: var(--ground); }
+  .terminal.node-short { fill: #fee2e2; stroke: var(--bad); }
+
+  .live-inside {
+    stroke: var(--current);
+    stroke-width: 4;
+    stroke-linecap: round;
+    fill: none;
+    stroke-dasharray: 9 9;
+    animation: dash 0.55s linear infinite;
+  }
+  .ac-inside {
+    stroke: var(--electron);
+    stroke-width: 3.2;
+    stroke-linecap: round;
+    fill: none;
+    stroke-dasharray: 4 12;
+    animation: dash 0.75s linear infinite;
+  }
+
+  .callout {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    max-width: 500px;
+    background: rgba(15, 23, 42, 0.88);
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 14px;
+    padding: 10px 12px;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    backdrop-filter: blur(6px);
+  }
+
+  .diagnostic-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .diag {
+    border-radius: 14px;
+    padding: 10px 11px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  .diag.ok { border-color: rgba(34, 197, 94, 0.65); background: rgba(22, 101, 52, 0.18); }
+  .diag.warn { border-color: rgba(245, 158, 11, 0.75); background: rgba(146, 64, 14, 0.18); }
+  .diag.fail { border-color: rgba(239, 68, 68, 0.75); background: rgba(127, 29, 29, 0.18); }
+  .diag strong { display: block; margin-bottom: 3px; }
+  .diag .fix { color: #cbd5e1; font-size: 0.86rem; line-height: 1.35; }
+
+  .node-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    color: #e2e8f0;
+  }
+  .node-table th, .node-table td {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 6px 4px;
+    text-align: left;
+  }
+  .node-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    margin-right: 5px;
+    vertical-align: -1px;
+  }
+  .dot-gate { background: var(--gate); }
+  .dot-source { background: var(--source); }
+  .dot-signal { background: var(--signal); }
+  .dot-ground { background: var(--ground); }
+  .dot-other { background: #94a3b8; }
+  .dot-short { background: var(--bad); }
+
+  .meter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .meter {
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.05);
+    padding: 10px;
+  }
+  .meter .label { color: #94a3b8; font-size: 0.78rem; }
+  .meter .value { font-weight: 800; font-size: 1.08rem; margin-top: 2px; }
+  canvas#scope {
+    width: 100%;
+    height: 150px;
+    border-radius: 14px;
+    background: #020617;
+    border: 1px solid rgba(255,255,255,0.13);
+    display: block;
+  }
+  .legend {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: #cbd5e1;
+    margin-top: 10px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 18px; height: 5px; border-radius: 999px; display: inline-block; }
+
+  .checklist {
+    margin: 0;
+    padding-left: 18px;
+    color: #cbd5e1;
+    line-height: 1.45;
+    font-size: 0.9rem;
+  }
+
+  .toast {
+    position: fixed;
+    top: 88px;
+    right: 20px;
+    max-width: 420px;
+    background: rgba(15,23,42,0.95);
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 10px 12px;
+    display: none;
+    z-index: 99;
+  }
+  .toast.show { display: block; }
+
+  details {
+    border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    padding: 9px 11px;
+    margin-top: 8px;
+  }
+  summary { cursor: pointer; font-weight: 700; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hydrophone Preamp Circuit Builder</h1>
+  <p>Drag parts, connect terminals, run checks, and visualize the DC bias current and tiny AC signal in a piezo + 2N5457 plug-in-power microphone circuit.</p>
+</header>
+
+<main>
+  <aside class="card panel left">
+    <h2>1. Build the circuit</h2>
+    <p class="small">Click a part to add it. Drag parts on the board. Click one terminal, then another terminal, to place a wire.</p>
+
+    <div class="button-grid" aria-label="parts palette">
+      <button class="palette-item" data-add="piezo"><span class="palette-icon">PZ</span><span>Piezo disc<br><span class="tiny">sensor, hot + ground</span></span></button>
+      <button class="palette-item" data-add="jfet"><span class="palette-icon">JF</span><span>2N5457 JFET<br><span class="tiny">G, D, S pins</span></span></button>
+      <button class="palette-item" data-add="resistor1m"><span class="palette-icon">1M</span><span>1 M&Omega; resistor<br><span class="tiny">gate leak/reference</span></span></button>
+      <button class="palette-item" data-add="resistor680"><span class="palette-icon">680</span><span>680 &Omega; resistor<br><span class="tiny">source self-bias</span></span></button>
+      <button class="palette-item" data-add="soundcard"><span class="palette-icon">IN</span><span>Sound card input<br><span class="tiny">3.3 V through 10 k&Omega;</span></span></button>
+      <button class="palette-item" data-add="groundbus"><span class="palette-icon">GND</span><span>Ground bus<br><span class="tiny">shared return rail</span></span></button>
+    </div>
+
+    <div class="section">
+      <h3>Starter layouts</h3>
+      <div class="button-row">
+        <button class="primary" id="starterBtn">Load loose parts</button>
+        <button class="good" id="correctBtn">Load correct circuit</button>
+        <button class="danger" id="clearBtn">Clear</button>
+      </div>
+      <label class="tiny" for="faultSelect">Practice troubleshooting:</label>
+      <div class="button-row">
+        <select id="faultSelect" aria-label="common mistake selector">
+          <option value="">Choose a common mistake...</option>
+          <option value="missingBias">Gate bias resistor missing</option>
+          <option value="swappedResistors">1M and 680 ohm resistors swapped</option>
+          <option value="dsSwap">JFET drain/source swapped</option>
+          <option value="outputShort">Signal accidentally shorted to ground</option>
+          <option value="noGround">Sound-card ground not connected</option>
+          <option value="piezoWrong">Piezo connected to output instead of gate</option>
+        </select>
+        <button id="loadFaultBtn">Load fault</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Editing</h3>
+      <div class="button-row">
+        <button id="rotateBtn">Rotate selected</button>
+        <button id="deleteBtn">Delete selected</button>
+        <button id="undoWireBtn">Undo last wire</button>
+      </div>
+      <p class="tiny">Keyboard: Delete removes the selected part or wire. Esc cancels a selected terminal. Wires are allowed to share a terminal. Connected terminals get a halo and a short visible wire stub, so hidden bends under parts do not hide the pin connection.</p>
+    </div>
+
+    <div class="section">
+      <h3>What students should discover</h3>
+      <ol class="checklist">
+        <li>Plug-in power is on the same lead as the audio signal.</li>
+        <li>The JFET drain connects to the sound-card signal lead.</li>
+        <li>The JFET source returns to ground through 680 &Omega;.</li>
+        <li>The piezo and 1 M&Omega; resistor both go from gate to ground.</li>
+        <li>The gate draws almost no DC current; it mainly senses voltage.</li>
+      </ol>
+      <details>
+        <summary>Teacher note</summary>
+        <p class="tiny">This is a simplified educational model, not a SPICE-accurate replacement. Real 2N5457 parts vary a lot, sound-card plug-in-power resistors vary, and actual pin order should be checked against the part in hand.</p>
+      </details>
+    </div>
+  </aside>
+
+  <section class="card workbench">
+    <div class="toolbar">
+      <button class="primary" id="checkBtn">Check circuit</button>
+      <button class="good" id="simulateBtn">Start simulation</button>
+      <button id="hintBtn">Next hint</button>
+      <button class="ghost" id="targetBtn">Hide target</button>
+      <button class="ghost" id="labelsBtn">Hide node colors</button>
+      <span class="spacer"></span>
+      <span id="statusPill" class="status-pill warn">Not checked yet</span>
+    </div>
+    <div id="svgWrap">
+      <svg id="board" viewBox="0 0 1100 720" preserveAspectRatio="xMinYMin meet" role="img" aria-label="circuit builder work area"></svg>
+      <div class="callout" id="callout">Tip: make a ground rail first, then connect the piezo ground, 1 M&Omega;, 680 &Omega;, and sound-card ground to it.</div>
+    </div>
+  </section>
+
+  <aside class="card panel right">
+    <h2>2. Diagnose and simulate</h2>
+    <div class="button-row">
+      <button class="primary" id="runChecksBtn">Run checks</button>
+      <button id="tapPiezoBtn">Tap piezo</button>
+    </div>
+
+    <div class="meter-grid" id="meters">
+      <div class="meter"><div class="label">Drain / signal</div><div class="value" id="meterDrain">--</div></div>
+      <div class="meter"><div class="label">Source</div><div class="value" id="meterSource">--</div></div>
+      <div class="meter"><div class="label">Gate</div><div class="value" id="meterGate">--</div></div>
+      <div class="meter"><div class="label">Drain current</div><div class="value" id="meterCurrent">--</div></div>
+    </div>
+
+    <div class="section">
+      <h3>Oscilloscope preview</h3>
+      <canvas id="scope" width="720" height="260" aria-label="output waveform preview"></canvas>
+      <p class="tiny" id="scopeCaption">Build and check the circuit. A correct build shows a biased output with a small AC wiggle when you tap the piezo.</p>
+      <div class="legend">
+        <span class="legend-item"><span class="swatch" style="background:var(--current)"></span> DC conventional current</span>
+        <span class="legend-item"><span class="swatch" style="background:var(--electron)"></span> Piezo AC signal</span>
+        <span class="legend-item"><span class="node-dot dot-signal"></span> Signal / drain node</span>
+        <span class="legend-item"><span class="node-dot dot-ground"></span> Ground node</span>
+        <span class="legend-item"><span class="node-dot dot-gate"></span> Gate node</span>
+        <span class="legend-item"><span class="node-dot dot-source"></span> Source node</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Mistake finder</h3>
+      <div id="diagnostics" class="diagnostic-list"></div>
+    </div>
+
+    <div class="section">
+      <h3>Node report</h3>
+      <table class="node-table" id="nodeTable">
+        <thead><tr><th>Node</th><th>Should contain</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h3>Source context</h3>
+      <p class="tiny">The reference circuit is the Dinacon 2025 piezo hydrophone buffer: a piezo disc, 2N5457 N-channel JFET, 1 M&Omega; gate resistor, 680 &Omega; source resistor, and sound-card plug-in power. <a href="https://exclav.es/2025/08/03/dinacon-2025-passive-acoustic-listening/" target="_blank" rel="noopener">Open the build notes</a>.</p>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  const svg = document.getElementById("board");
+  const diagnosticsEl = document.getElementById("diagnostics");
+  const statusPill = document.getElementById("statusPill");
+  const callout = document.getElementById("callout");
+  const nodeTableBody = document.querySelector("#nodeTable tbody");
+  const toastEl = document.getElementById("toast");
+  const scope = document.getElementById("scope");
+  const ctx = scope.getContext("2d");
+
+  let components = [];
+  let wires = [];
+  let selectedTerminal = null;
+  let selectedComponentId = null;
+  let selectedWireId = null;
+  let showTarget = true;
+  let showNodeColors = true;
+  let simulationOn = false;
+  let hintIndex = 0;
+  let lastCheck = null;
+  let nextComponentId = 1;
+  let nextWireId = 1;
+  let dragging = null;
+  let pulse = 0;
+  let animationStarted = false;
+
+  const TYPE_LABELS = {
+    piezo: "Piezo disc",
+    jfet: "2N5457 JFET",
+    resistor1m: "1 MOhm",
+    resistor680: "680 ohm",
+    soundcard: "Sound card",
+    groundbus: "Ground bus"
+  };
+
+  const GOOD_LAYOUT = {
+    components: [
+      { id: "piezo", type: "piezo", x: 85, y: 175, rot: "h" },
+      { id: "r1", type: "resistor1m", x: 260, y: 180, rot: "v" },
+      { id: "jfet", type: "jfet", x: 430, y: 160, rot: "h" },
+      { id: "r680", type: "resistor680", x: 525, y: 345, rot: "v" },
+      { id: "sound", type: "soundcard", x: 775, y: 120, rot: "h" },
+      { id: "ground", type: "groundbus", x: 170, y: 540, rot: "h" }
+    ],
+    wires: [
+      ["piezo:HOT", "jfet:G"],
+      ["r1:A", "jfet:G"],
+      ["piezo:GND", "ground:G1"],
+      ["r1:B", "ground:G2"],
+      ["jfet:S", "r680:A"],
+      ["r680:B", "ground:G3"],
+      ["jfet:D", "sound:SIG"],
+      ["sound:GND", "ground:G4"]
+    ]
+  };
+
+  function snap(n) { return Math.round(n / 10) * 10; }
+
+  function showToast(message) {
+    toastEl.textContent = message;
+    toastEl.classList.add("show");
+    window.clearTimeout(showToast._timer);
+    showToast._timer = window.setTimeout(() => toastEl.classList.remove("show"), 2600);
+  }
+
+  function uid(prefix) {
+    if (prefix === "c") return "c" + (nextComponentId++);
+    return "w" + (nextWireId++);
+  }
+
+  function createSvg(tag, attrs, parent) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attrs || {}).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) el.setAttribute(key, String(value));
+    });
+    if (parent) parent.appendChild(el);
+    return el;
+  }
+
+  function componentDims(c) {
+    if (c.type === "resistor1m" || c.type === "resistor680") {
+      return c.rot === "h" ? { w: 145, h: 70 } : { w: 80, h: 145 };
+    }
+    if (c.type === "piezo") return c.rot === "v" ? { w: 95, h: 135 } : { w: 145, h: 92 };
+    if (c.type === "jfet") return { w: 145, h: 155 };
+    if (c.type === "soundcard") return { w: 230, h: 165 };
+    if (c.type === "groundbus") return { w: 610, h: 70 };
+    return { w: 100, h: 80 };
+  }
+
+  function terminalDefs(c) {
+    const d = componentDims(c);
+    if (c.type === "resistor1m" || c.type === "resistor680") {
+      return c.rot === "h"
+        ? [{ name: "A", x: 8, y: d.h / 2 }, { name: "B", x: d.w - 8, y: d.h / 2 }]
+        : [{ name: "A", x: d.w / 2, y: 8 }, { name: "B", x: d.w / 2, y: d.h - 8 }];
+    }
+    if (c.type === "piezo") {
+      return c.rot === "v"
+        ? [{ name: "HOT", x: d.w / 2, y: 8 }, { name: "GND", x: d.w / 2, y: d.h - 8 }]
+        : [{ name: "HOT", x: d.w - 10, y: 30 }, { name: "GND", x: d.w - 10, y: 68 }];
+    }
+    if (c.type === "jfet") {
+      return [
+        { name: "G", x: 0, y: 78 },
+        { name: "D", x: d.w, y: 27 },
+        { name: "S", x: d.w, y: 127 }
+      ];
+    }
+    if (c.type === "soundcard") {
+      return [
+        { name: "SIG", x: 16, y: 82 },
+        { name: "GND", x: 16, y: 135 }
+      ];
+    }
+    if (c.type === "groundbus") {
+      return [
+        { name: "G1", x: 45, y: 18 },
+        { name: "G2", x: 180, y: 18 },
+        { name: "G3", x: 315, y: 18 },
+        { name: "G4", x: 450, y: 18 },
+        { name: "G5", x: 585, y: 18 }
+      ];
+    }
+    return [];
+  }
+
+  function termKey(ref) { return ref.compId + ":" + ref.term; }
+  function findComponent(id) { return components.find(c => c.id === id); }
+  function compsByType(type) { return components.filter(c => c.type === type); }
+  function firstComp(type) { return compsByType(type)[0]; }
+
+  function getTermPos(ref) {
+    const c = findComponent(ref.compId);
+    if (!c) return { x: 0, y: 0 };
+    const t = terminalDefs(c).find(item => item.name === ref.term);
+    if (!t) return { x: c.x, y: c.y };
+    return { x: c.x + t.x, y: c.y + t.y };
+  }
+
+  function parseRef(s) {
+    const parts = s.split(":");
+    const layoutId = parts[0];
+    const term = parts[1];
+    const c = components.find(item => item.layoutId === layoutId || item.id === layoutId);
+    return c ? { compId: c.id, term } : null;
+  }
+
+  class UnionFind {
+    constructor() { this.parent = new Map(); }
+    add(x) { if (!this.parent.has(x)) this.parent.set(x, x); }
+    find(x) {
+      this.add(x);
+      const p = this.parent.get(x);
+      if (p !== x) this.parent.set(x, this.find(p));
+      return this.parent.get(x);
+    }
+    union(a, b) {
+      const ra = this.find(a);
+      const rb = this.find(b);
+      if (ra !== rb) this.parent.set(rb, ra);
+    }
+  }
+
+  function buildGraph() {
+    const uf = new UnionFind();
+    components.forEach(c => terminalDefs(c).forEach(t => uf.add(termKey({ compId: c.id, term: t.name }))));
+    wires.forEach(w => {
+      const ca = findComponent(w.a.compId);
+      const cb = findComponent(w.b.compId);
+      if (ca && cb) uf.union(termKey(w.a), termKey(w.b));
+    });
+    components.filter(c => c.type === "groundbus").forEach(c => {
+      const terms = terminalDefs(c);
+      for (let i = 1; i < terms.length; i++) {
+        uf.union(termKey({ compId: c.id, term: terms[0].name }), termKey({ compId: c.id, term: terms[i].name }));
+      }
+    });
+    return uf;
+  }
+
+  function nodeOf(uf, comp, term) {
+    if (!comp) return null;
+    return uf.find(termKey({ compId: comp.id, term }));
+  }
+
+  function sameNode(uf, a, b) {
+    return a && b && uf.find(a) === uf.find(b);
+  }
+
+  function componentBetween(uf, comp, n1, n2) {
+    if (!comp || !n1 || !n2) return false;
+    const terms = terminalDefs(comp);
+    if (terms.length < 2) return false;
+    const a = nodeOf(uf, comp, terms[0].name);
+    const b = nodeOf(uf, comp, terms[1].name);
+    return (sameNode(uf, a, n1) && sameNode(uf, b, n2)) || (sameNode(uf, a, n2) && sameNode(uf, b, n1));
+  }
+
+  function addDiagnostic(list, severity, title, fix, code) {
+    list.push({ severity, title, fix, code: code || title });
+  }
+
+  function checkCircuit(silent) {
+    const uf = buildGraph();
+    const sound = firstComp("soundcard");
+    const jfet = firstComp("jfet");
+    const piezo = firstComp("piezo");
+    const r1 = firstComp("resistor1m");
+    const r680 = firstComp("resistor680");
+    const diags = [];
+
+    const required = [
+      ["piezo", "Piezo disc"],
+      ["jfet", "2N5457 JFET"],
+      ["resistor1m", "1 MOhm resistor"],
+      ["resistor680", "680 ohm resistor"],
+      ["soundcard", "sound-card microphone input"]
+    ];
+    required.forEach(([type, label]) => {
+      const count = compsByType(type).length;
+      if (count === 0) addDiagnostic(diags, "fail", label + " is missing", "Add this part from the palette.", "missing-" + type);
+      else if (count > 1) addDiagnostic(diags, "warn", "More than one " + label, "The checker uses the first one it finds. Delete extras for the challenge.", "duplicate-" + type);
+      else addDiagnostic(diags, "ok", label + " present", "", "present-" + type);
+    });
+
+    let nodes = {};
+    if (sound && jfet) {
+      nodes.ground = nodeOf(uf, sound, "GND");
+      nodes.signal = nodeOf(uf, sound, "SIG");
+      nodes.gate = nodeOf(uf, jfet, "G");
+      nodes.drain = nodeOf(uf, jfet, "D");
+      nodes.source = nodeOf(uf, jfet, "S");
+    }
+
+    if (sound && jfet && nodes.signal && nodes.ground) {
+      if (sameNode(uf, nodes.signal, nodes.ground)) {
+        addDiagnostic(diags, "fail", "Signal is shorted to ground", "Remove any wire that directly joins sound-card SIG to GND. The internal 10 kOhm pull-up should feed the signal lead, not be bypassed.", "signal-ground-short");
+      } else {
+        addDiagnostic(diags, "ok", "Signal and ground are separate", "", "signal-ground-separate");
+      }
+    }
+
+    if (sound && jfet && nodes.drain && nodes.signal) {
+      if (sameNode(uf, nodes.drain, nodes.signal)) {
+        addDiagnostic(diags, "ok", "JFET drain goes to signal output", "Conventional DC current enters the drain from the sound-card pull-up.", "drain-signal-ok");
+      } else if (sameNode(uf, nodes.source, nodes.signal)) {
+        addDiagnostic(diags, "fail", "JFET source is wired to the signal lead", "Swap the JFET D and S connections: D should go to sound-card SIG; S should go to the 680 ohm resistor.", "ds-swapped-signal");
+      } else {
+        addDiagnostic(diags, "fail", "JFET drain is not connected to sound-card signal", "Wire D on the 2N5457 to the sound-card SIG / mic input terminal.", "drain-signal-missing");
+      }
+    }
+
+    if (jfet && r680 && nodes.source && nodes.ground) {
+      if (componentBetween(uf, r680, nodes.source, nodes.ground)) {
+        addDiagnostic(diags, "ok", "680 ohm source resistor is correct", "This resistor makes the source rise a little above ground, biasing the JFET gate-source voltage negative.", "source-resistor-ok");
+      } else if (r1 && componentBetween(uf, r1, nodes.source, nodes.ground)) {
+        addDiagnostic(diags, "fail", "The 1 MOhm resistor is in the source leg", "Use 680 ohm from source to ground. Put the 1 MOhm resistor from gate to ground.", "r-swapped-source");
+      } else if (sameNode(uf, nodes.source, nodes.ground)) {
+        addDiagnostic(diags, "fail", "JFET source is shorted directly to ground", "Remove the direct short. Source should reach ground only through 680 ohm.", "source-shorted");
+      } else {
+        addDiagnostic(diags, "fail", "JFET source does not return through 680 ohm", "Wire S to one end of the 680 ohm resistor, and wire the other end to sound-card ground.", "source-resistor-missing");
+      }
+    }
+
+    if (jfet && r1 && nodes.gate && nodes.ground) {
+      if (componentBetween(uf, r1, nodes.gate, nodes.ground)) {
+        addDiagnostic(diags, "ok", "1 MOhm gate reference is correct", "It gives the piezo/gate node a DC reference while keeping the input impedance high.", "gate-r-ok");
+      } else if (r680 && componentBetween(uf, r680, nodes.gate, nodes.ground)) {
+        addDiagnostic(diags, "fail", "The 680 ohm resistor is on the gate", "Use 1 MOhm from gate to ground. 680 ohm belongs from source to ground.", "r-swapped-gate");
+      } else {
+        addDiagnostic(diags, "fail", "Gate has no 1 MOhm path to ground", "Wire 1 MOhm from the JFET gate to ground so the gate is not floating.", "gate-r-missing");
+      }
+    }
+
+    if (jfet && piezo && nodes.gate && nodes.ground) {
+      const hot = nodeOf(uf, piezo, "HOT");
+      const pgnd = nodeOf(uf, piezo, "GND");
+      if (sameNode(uf, hot, nodes.gate) && sameNode(uf, pgnd, nodes.ground)) {
+        addDiagnostic(diags, "ok", "Piezo disc drives the gate", "Sound pressure creates a small AC voltage at the high-impedance gate node.", "piezo-ok");
+      } else if (componentBetween(uf, piezo, nodes.gate, nodes.ground)) {
+        addDiagnostic(diags, "warn", "Piezo is between gate and ground but flipped", "A piezo disc is usually treated as non-polar, but for the workshop build the brass/case side is normally ground.", "piezo-flipped");
+      } else if (sameNode(uf, hot, nodes.signal) || sameNode(uf, pgnd, nodes.signal)) {
+        addDiagnostic(diags, "fail", "Piezo is connected to the output node", "Move the piezo hot lead to the JFET gate. The output/signal node belongs to the drain.", "piezo-output");
+      } else {
+        addDiagnostic(diags, "fail", "Piezo is not between gate and ground", "Wire piezo HOT to G, and piezo GND to the shared ground rail.", "piezo-missing");
+      }
+    }
+
+    if (jfet && nodes.gate && nodes.source && nodes.drain) {
+      if (sameNode(uf, nodes.gate, nodes.source)) {
+        addDiagnostic(diags, "fail", "Gate is shorted to source", "Remove that short. The gate should only connect to the piezo and 1 MOhm resistor.", "gate-source-short");
+      }
+      if (sameNode(uf, nodes.gate, nodes.drain)) {
+        addDiagnostic(diags, "fail", "Gate is shorted to drain/output", "Remove that short. A piezo signal on the gate should control the JFET, not be tied to the output.", "gate-drain-short");
+      }
+      if (sameNode(uf, nodes.drain, nodes.source)) {
+        addDiagnostic(diags, "fail", "Drain is shorted to source", "The drain-source path should be through the JFET channel, not an external wire.", "drain-source-short");
+      }
+    }
+
+    if (components.some(c => c.type === "groundbus") && sound) {
+      const gb = firstComp("groundbus");
+      const gbNode = nodeOf(uf, gb, "G1");
+      if (gbNode && nodes.ground && sameNode(uf, gbNode, nodes.ground)) {
+        addDiagnostic(diags, "ok", "Ground bus is tied to sound-card ground", "All return paths share the same reference.", "groundbus-ok");
+      } else {
+        addDiagnostic(diags, "warn", "Ground bus is not tied to sound-card ground", "Connect the ground bus to sound-card GND, otherwise parts on the rail may not return to the recorder.", "groundbus-floating");
+      }
+    }
+
+    const hasFail = diags.some(d => d.severity === "fail");
+    const hasWarn = diags.some(d => d.severity === "warn");
+    const correct = !hasFail && sound && jfet && piezo && r1 && r680 &&
+      sameNode(uf, nodes.drain, nodes.signal) &&
+      componentBetween(uf, r680, nodes.source, nodes.ground) &&
+      componentBetween(uf, r1, nodes.gate, nodes.ground) &&
+      componentBetween(uf, piezo, nodes.gate, nodes.ground) &&
+      !sameNode(uf, nodes.signal, nodes.ground) &&
+      !sameNode(uf, nodes.gate, nodes.source) &&
+      !sameNode(uf, nodes.gate, nodes.drain) &&
+      !sameNode(uf, nodes.drain, nodes.source);
+
+    const bias = estimateBias(correct, diags);
+    lastCheck = { uf, diags, nodes, correct, hasFail, hasWarn, bias };
+    if (!silent) {
+      renderDiagnostics(lastCheck);
+      updateStatus(lastCheck);
+      updateMeters(lastCheck);
+      render();
+    }
+    return lastCheck;
+  }
+
+  function estimateBias(correct, diags) {
+    const Vcc = 3.3;
+    const Rpull = 10000;
+    const Rs = 680;
+    if (diags.some(d => d.code === "signal-ground-short")) {
+      return { mode: "short", drain: 0.03, source: 0, gate: 0, current: Vcc / Rpull, caption: "Output is shorted low; current is wasted in the sound-card pull-up." };
+    }
+    if (!correct) {
+      if (diags.some(d => d.code === "source-resistor-missing" || d.code === "groundbus-floating" || d.code === "noGround")) {
+        return { mode: "open", drain: Vcc, source: NaN, gate: NaN, current: 0, caption: "No complete return path: output tends to sit high with little useful signal." };
+      }
+      if (diags.some(d => d.code === "r-swapped-source")) {
+        return { mode: "weak", drain: 2.7, source: 0.4, gate: 0, current: 0.00006, caption: "A 1 MOhm source resistor starves the JFET; output is weak or silent." };
+      }
+      if (diags.some(d => d.code === "gate-r-missing")) {
+        return { mode: "float", drain: 0.6, source: 0.18, gate: NaN, current: 0.00027, caption: "The JFET may bias, but the floating gate makes the signal unpredictable and noisy." };
+      }
+      return { mode: "bad", drain: NaN, source: NaN, gate: NaN, current: NaN, caption: "Fix the red items in the mistake finder to get a meaningful signal." };
+    }
+
+    const IDSS = 0.0015;      // typical educational value, A
+    const Vp = 3.0;           // absolute value of VGS(off), V
+    const Imax = Vcc / (Rpull + Rs);
+    function jfetCurrent(I) {
+      const Vs = I * Rs;
+      const Vd = Vcc - I * Rpull;
+      const Vgs = -Vs;
+      const Vds = Vd - Vs;
+      if (Vds <= 0) return 0;
+      if (Vgs <= -Vp) return 0;
+      const vsat = Vgs + Vp;
+      const beta = 2 * IDSS / (Vp * Vp);
+      if (Vds >= vsat) return IDSS * Math.pow(1 + Vgs / Vp, 2);
+      return Math.max(0, beta * ((Vgs + Vp) * Vds - (Vds * Vds) / 2));
+    }
+    let lo = 0, hi = Imax;
+    for (let i = 0; i < 80; i++) {
+      const mid = (lo + hi) / 2;
+      if (mid - jfetCurrent(mid) > 0) hi = mid;
+      else lo = mid;
+    }
+    const I = (lo + hi) / 2;
+    return {
+      mode: "ok",
+      drain: Vcc - I * Rpull,
+      source: I * Rs,
+      gate: 0,
+      current: I,
+      caption: "Approximate DC bias with 3.3 V plug-in power and 10 kOhm pull-up. Real parts vary."
+    };
+  }
+
+  function fmtV(v) {
+    if (!Number.isFinite(v)) return "--";
+    return v.toFixed(2) + " V";
+  }
+  function fmtI(i) {
+    if (!Number.isFinite(i)) return "--";
+    if (i < 0.000001) return (i * 1000000).toFixed(2) + " uA";
+    return (i * 1000).toFixed(2) + " mA";
+  }
+
+  function updateMeters(check) {
+    document.getElementById("meterDrain").textContent = fmtV(check.bias.drain);
+    document.getElementById("meterSource").textContent = fmtV(check.bias.source);
+    document.getElementById("meterGate").textContent = fmtV(check.bias.gate);
+    document.getElementById("meterCurrent").textContent = fmtI(check.bias.current);
+    document.getElementById("scopeCaption").textContent = check.bias.caption;
+  }
+
+  function updateStatus(check) {
+    statusPill.classList.remove("good", "warn", "bad");
+    if (check.correct) {
+      statusPill.textContent = "Circuit passes";
+      statusPill.classList.add("good");
+      callout.textContent = "Nice. Start simulation to see conventional current through the pull-up, JFET channel, and source resistor. The blue pulses show the piezo AC signal at the gate.";
+    } else if (check.hasFail) {
+      const failCount = check.diags.filter(d => d.severity === "fail").length;
+      statusPill.textContent = failCount + " issue" + (failCount === 1 ? "" : "s") + " found";
+      statusPill.classList.add("bad");
+      callout.textContent = "Use the mistake finder on the right. Red items usually point to one missing or misplaced wire.";
+    } else {
+      statusPill.textContent = "Works with warnings";
+      statusPill.classList.add("warn");
+      callout.textContent = "The main topology looks usable, but warnings show details to improve before soldering.";
+    }
+  }
+
+  function renderDiagnostics(check) {
+    diagnosticsEl.innerHTML = "";
+    const ordered = [...check.diags].sort((a, b) => {
+      const rank = { fail: 0, warn: 1, ok: 2 };
+      return rank[a.severity] - rank[b.severity];
+    });
+    if (ordered.length === 0) {
+      diagnosticsEl.textContent = "Add components to begin.";
+    }
+    ordered.forEach(d => {
+      const div = document.createElement("div");
+      div.className = "diag " + (d.severity === "ok" ? "ok" : d.severity === "warn" ? "warn" : "fail");
+      const icon = d.severity === "ok" ? "OK: " : d.severity === "warn" ? "Check: " : "Fix: ";
+      div.innerHTML = "<strong>" + escapeHtml(icon + d.title) + "</strong>" + (d.fix ? "<div class='fix'>" + escapeHtml(d.fix) + "</div>" : "");
+      diagnosticsEl.appendChild(div);
+    });
+    renderNodeTable(check);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>'"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;" }[ch]));
+  }
+
+  function getNodeMembers(uf) {
+    const members = new Map();
+    components.forEach(c => {
+      terminalDefs(c).forEach(t => {
+        const key = termKey({ compId: c.id, term: t.name });
+        const root = uf.find(key);
+        if (!members.has(root)) members.set(root, []);
+        members.get(root).push((c.label || TYPE_LABELS[c.type]) + "." + t.name);
+      });
+    });
+    return members;
+  }
+
+  function classifyNode(root, check) {
+    if (!check || !check.nodes) return "other";
+    const uf = check.uf;
+    const n = check.nodes;
+    if (n.signal && n.ground && sameNode(uf, root, n.signal) && sameNode(uf, root, n.ground)) return "short";
+    if (n.ground && sameNode(uf, root, n.ground)) return "ground";
+    if (n.signal && sameNode(uf, root, n.signal)) return "signal";
+    if (n.gate && sameNode(uf, root, n.gate)) return "gate";
+    if (n.source && sameNode(uf, root, n.source)) return "source";
+    return "other";
+  }
+
+  function nodeLabel(kind) {
+    return {
+      ground: "Ground return",
+      signal: "Signal output / JFET drain",
+      gate: "Piezo + JFET gate",
+      source: "JFET source / 680 ohm top",
+      short: "Shorted node",
+      other: "Unassigned / floating"
+    }[kind] || "Other";
+  }
+
+  function renderNodeTable(check) {
+    nodeTableBody.innerHTML = "";
+    if (!check) return;
+    const members = getNodeMembers(check.uf);
+    const rows = [...members.entries()].map(([root, list]) => ({ root, kind: classifyNode(root, check), list })).sort((a, b) => {
+      const rank = { short: 0, signal: 1, gate: 2, source: 3, ground: 4, other: 5 };
+      return rank[a.kind] - rank[b.kind];
+    });
+    rows.forEach(row => {
+      const tr = document.createElement("tr");
+      const td1 = document.createElement("td");
+      const td2 = document.createElement("td");
+      td1.innerHTML = "<span class='node-dot dot-" + row.kind + "'></span>" + escapeHtml(nodeLabel(row.kind));
+      td2.textContent = row.list.join(", ");
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      nodeTableBody.appendChild(tr);
+    });
+  }
+
+  function loadLayout(wired) {
+    components = GOOD_LAYOUT.components.map(item => ({
+      id: uid("c"),
+      layoutId: item.id,
+      type: item.type,
+      x: item.x,
+      y: item.y,
+      rot: item.rot,
+      label: TYPE_LABELS[item.type]
+    }));
+    wires = [];
+    if (wired) {
+      GOOD_LAYOUT.wires.forEach(pair => addWireRefs(parseRef(pair[0]), parseRef(pair[1]), true));
+    }
+    selectedTerminal = null;
+    selectedComponentId = null;
+    selectedWireId = null;
+    hintIndex = 0;
+    render();
+    checkCircuit(false);
+  }
+
+  function loadFault(kind) {
+    loadLayout(true);
+    const ref = s => parseRef(s);
+    function removeWireWith(a, b) {
+      const ra = ref(a), rb = ref(b);
+      if (!ra || !rb) return;
+      wires = wires.filter(w => !((sameRef(w.a, ra) && sameRef(w.b, rb)) || (sameRef(w.a, rb) && sameRef(w.b, ra))));
+    }
+    if (kind === "missingBias") {
+      wires = wires.filter(w => !(findComponent(w.a.compId)?.layoutId === "r1" || findComponent(w.b.compId)?.layoutId === "r1"));
+      showToast("Loaded fault: the JFET gate has no 1 MOhm DC reference.");
+    } else if (kind === "swappedResistors") {
+      ["r1:A:jfet:G", "r1:B:ground:G2", "r680:A:jfet:S", "r680:B:ground:G3"].forEach(code => {
+        const p = code.split(":");
+        removeWireWith(p[0] + ":" + p[1], p[2] + ":" + p[3]);
+      });
+      addWireRefs(ref("r1:A"), ref("jfet:S"), true);
+      addWireRefs(ref("r1:B"), ref("ground:G3"), true);
+      addWireRefs(ref("r680:A"), ref("jfet:G"), true);
+      addWireRefs(ref("r680:B"), ref("ground:G2"), true);
+      showToast("Loaded fault: the two resistor values are swapped.");
+    } else if (kind === "dsSwap") {
+      removeWireWith("jfet:D", "sound:SIG");
+      removeWireWith("jfet:S", "r680:A");
+      addWireRefs(ref("jfet:S"), ref("sound:SIG"), true);
+      addWireRefs(ref("jfet:D"), ref("r680:A"), true);
+      showToast("Loaded fault: JFET drain and source connections are swapped.");
+    } else if (kind === "outputShort") {
+      addWireRefs(ref("sound:SIG"), ref("ground:G5"), true);
+      showToast("Loaded fault: the signal output is shorted to ground.");
+    } else if (kind === "noGround") {
+      removeWireWith("sound:GND", "ground:G4");
+      showToast("Loaded fault: the recorder ground is not connected to the circuit ground rail.");
+    } else if (kind === "piezoWrong") {
+      removeWireWith("piezo:HOT", "jfet:G");
+      removeWireWith("piezo:GND", "ground:G1");
+      addWireRefs(ref("piezo:HOT"), ref("sound:SIG"), true);
+      addWireRefs(ref("piezo:GND"), ref("ground:G1"), true);
+      showToast("Loaded fault: piezo hot lead is on the output instead of the gate.");
+    }
+    render();
+    checkCircuit(false);
+  }
+
+  function addComponent(type) {
+    const count = components.length;
+    const x = 60 + (count % 4) * 130;
+    const y = 80 + Math.floor(count / 4) * 115;
+    components.push({ id: uid("c"), layoutId: null, type, x, y, rot: type.includes("resistor") ? "v" : "h", label: TYPE_LABELS[type] });
+    selectedComponentId = components[components.length - 1].id;
+    selectedWireId = null;
+    render();
+    checkCircuit(false);
+  }
+
+  function sameRef(a, b) { return a && b && a.compId === b.compId && a.term === b.term; }
+
+  function addWireRefs(a, b, skipRender) {
+    if (!a || !b) return;
+    if (a.compId === b.compId && a.term === b.term) return;
+    const exists = wires.some(w => (sameRef(w.a, a) && sameRef(w.b, b)) || (sameRef(w.a, b) && sameRef(w.b, a)));
+    if (!exists) wires.push({ id: uid("w"), a: { ...a }, b: { ...b } });
+    if (!skipRender) {
+      render();
+      checkCircuit(false);
+    }
+  }
+
+  function deleteSelected() {
+    if (selectedWireId) {
+      wires = wires.filter(w => w.id !== selectedWireId);
+      selectedWireId = null;
+      render();
+      checkCircuit(false);
+      return;
+    }
+    if (selectedComponentId) {
+      components = components.filter(c => c.id !== selectedComponentId);
+      wires = wires.filter(w => w.a.compId !== selectedComponentId && w.b.compId !== selectedComponentId);
+      selectedComponentId = null;
+      selectedTerminal = null;
+      render();
+      checkCircuit(false);
+    }
+  }
+
+  function rotateSelected() {
+    const c = findComponent(selectedComponentId);
+    if (!c) { showToast("Select a component to rotate."); return; }
+    if (!["resistor1m", "resistor680", "piezo"].includes(c.type)) {
+      showToast("This part has a fixed teaching symbol.");
+      return;
+    }
+    c.rot = c.rot === "h" ? "v" : "h";
+    render();
+    checkCircuit(false);
+  }
+
+  function undoLastWire() {
+    wires.pop();
+    selectedWireId = null;
+    render();
+    checkCircuit(false);
+  }
+
+  function wirePoints(p1, p2) {
+    const dx = Math.abs(p2.x - p1.x);
+    const dy = Math.abs(p2.y - p1.y);
+    if (dx < 14 || dy < 14) return [p1, p2];
+    const midX = snap((p1.x + p2.x) / 2);
+    return [p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2];
+  }
+
+  function pathFromPoints(points) {
+    return "M " + points.map(p => p.x + " " + p.y).join(" L ");
+  }
+
+  function wirePath(p1, p2) {
+    return pathFromPoints(wirePoints(p1, p2));
+  }
+
+  function terminalRank(ref, check) {
+    if (!check || !check.correct) return null;
+    const c = findComponent(ref.compId);
+    if (!c) return null;
+    if (c.type === "soundcard" && ref.term === "SIG") return 0;
+    if (c.type === "jfet" && ref.term === "D") return 1;
+    if (c.type === "jfet" && ref.term === "S") return 2;
+    if (c.type === "resistor680" && ref.term === "A") return 3;
+    if (c.type === "resistor680" && ref.term === "B") return 4;
+    if (c.type === "soundcard" && ref.term === "GND") return 5;
+    if (c.type === "groundbus") return 5;
+    return null;
+  }
+
+  function isWireOnAcGate(ref, check) {
+    if (!simulationOn || !check || !check.correct) return false;
+    const c = findComponent(ref.compId);
+    if (!c) return false;
+    return (c.type === "piezo" && ref.term === "HOT") || (c.type === "jfet" && ref.term === "G") || (c.type === "resistor1m" && ref.term === "A");
+  }
+
+  function drawGrid() {
+    const g = createSvg("g", { class: "grid" }, svg);
+    for (let x = 0; x <= 1100; x += 20) createSvg("line", { x1: x, y1: 0, x2: x, y2: 720, class: x % 100 === 0 ? "grid-major" : "grid-line" }, g);
+    for (let y = 0; y <= 720; y += 20) createSvg("line", { x1: 0, y1: y, x2: 1100, y2: y, class: y % 100 === 0 ? "grid-major" : "grid-line" }, g);
+  }
+
+  function drawTarget() {
+    if (!showTarget) return;
+    const g = createSvg("g", { class: "ghost" }, svg);
+    createSvg("text", { x: 76, y: 58, "font-size": 16, "font-weight": 800 }, g).textContent = "Target topology";
+    const lines = [
+      [190, 250, 440, 250], [440, 250, 548, 188], [548, 188, 790, 188],
+      [548, 288, 548, 548], [310, 250, 310, 548], [145, 290, 145, 548], [790, 248, 790, 548]
+    ];
+    lines.forEach(l => createSvg("path", { d: "M " + l[0] + " " + l[1] + " L " + l[2] + " " + l[3], class: "wire", stroke: "#0f172a", "stroke-width": 7 }, g));
+    createSvg("rect", { x: 82, y: 206, width: 110, height: 100, rx: 18, class: "body" }, g);
+    createSvg("text", { x: 102, y: 260 }, g).textContent = "Piezo";
+    createSvg("rect", { x: 278, y: 206, width: 64, height: 112, rx: 12, class: "body" }, g);
+    createSvg("text", { x: 284, y: 270 }, g).textContent = "1M";
+    createSvg("circle", { cx: 548, cy: 238, r: 56, class: "body" }, g);
+    createSvg("text", { x: 514, y: 244 }, g).textContent = "JFET";
+    createSvg("rect", { x: 516, y: 372, width: 64, height: 112, rx: 12, class: "body" }, g);
+    createSvg("text", { x: 526, y: 438 }, g).textContent = "680";
+    createSvg("rect", { x: 790, y: 132, width: 210, height: 144, rx: 18, class: "body" }, g);
+    createSvg("text", { x: 824, y: 194 }, g).textContent = "Sound card";
+    createSvg("text", { x: 822, y: 216 }, g).textContent = "~10k to 3.3V";
+    createSvg("path", { d: "M 95 548 L 960 548", class: "wire", stroke: "#0f172a", "stroke-width": 7 }, g);
+    createSvg("text", { x: 930, y: 586 }, g).textContent = "GND";
+  }
+
+  function render() {
+    svg.innerHTML = "";
+    const defs = createSvg("defs", {}, svg);
+    const marker = createSvg("marker", { id: "arrow", markerWidth: 10, markerHeight: 10, refX: 5, refY: 3, orient: "auto", markerUnits: "strokeWidth" }, defs);
+    createSvg("path", { d: "M 0 0 L 6 3 L 0 6 z", fill: "#f97316" }, marker);
+    drawGrid();
+    drawTarget();
+
+    const check = lastCheck || checkCircuit(true);
+    wires.forEach(w => renderWire(w, check));
+    components.forEach(c => renderComponent(c, check));
+    wires.forEach(w => renderWireEndpointOverlay(w, check));
+  }
+
+  function wireVisualClass(w, check, baseClass) {
+    let cls = baseClass + (w.id === selectedWireId ? " selected" : "");
+    let reverse = false;
+    if (simulationOn && check) {
+      const ra = terminalRank(w.a, check);
+      const rb = terminalRank(w.b, check);
+      if (ra !== null && rb !== null && ra !== rb && Math.abs(ra - rb) <= 5) {
+        cls += " live";
+        reverse = ra > rb;
+      } else if (isWireOnAcGate(w.a, check) && isWireOnAcGate(w.b, check)) {
+        cls += " signalPulse";
+      }
+    }
+    if (reverse) cls += " reverse";
+    return cls;
+  }
+
+  function renderWire(w, check) {
+    const p1 = getTermPos(w.a);
+    const p2 = getTermPos(w.b);
+    const d = wirePath(p1, p2);
+    const hit = createSvg("path", { d, class: "wire-hit" }, svg);
+    hit.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      selectedWireId = w.id;
+      selectedComponentId = null;
+      selectedTerminal = null;
+      render();
+    });
+    const cls = wireVisualClass(w, check, "wire");
+    const path = createSvg("path", { d, class: cls, "marker-mid": simulationOn && cls.includes("live") ? "url(#arrow)" : null }, svg);
+    path.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      selectedWireId = w.id;
+      selectedComponentId = null;
+      selectedTerminal = null;
+      render();
+    });
+  }
+
+  function endpointStub(points, atStart) {
+    const endIndex = atStart ? 0 : points.length - 1;
+    const nextIndex = atStart ? 1 : points.length - 2;
+    const a = points[endIndex];
+    const b = points[nextIndex];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const startGap = 10;
+    const stubLen = 34;
+    return "M " + (a.x + ux * startGap) + " " + (a.y + uy * startGap) + " L " + (a.x + ux * stubLen) + " " + (a.y + uy * stubLen);
+  }
+
+  function renderWireEndpointOverlay(w, check) {
+    const p1 = getTermPos(w.a);
+    const p2 = getTermPos(w.b);
+    const points = wirePoints(p1, p2);
+    const cls = wireVisualClass(w, check, "wire-end-stub");
+    createSvg("path", { d: endpointStub(points, true), class: cls }, svg);
+    createSvg("path", { d: endpointStub(points, false), class: cls }, svg);
+  }
+
+  function renderComponent(c, check) {
+    const g = createSvg("g", { class: "component" + (c.id === selectedComponentId ? " selected" : ""), transform: "translate(" + c.x + " " + c.y + ")", "data-id": c.id }, svg);
+    g.addEventListener("pointerdown", (e) => onComponentPointerDown(e, c));
+    if (c.type === "resistor1m" || c.type === "resistor680") drawResistor(g, c, check);
+    else if (c.type === "piezo") drawPiezo(g, c, check);
+    else if (c.type === "jfet") drawJfet(g, c, check);
+    else if (c.type === "soundcard") drawSoundcard(g, c, check);
+    else if (c.type === "groundbus") drawGroundbus(g, c, check);
+    drawTerminals(g, c, check);
+  }
+
+  function drawResistor(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 16, class: "body" }, g);
+    const value = c.type === "resistor1m" ? "1 MOhm" : "680 ohm";
+    createSvg("text", { x: d.w / 2, y: c.rot === "h" ? 22 : 24, "text-anchor": "middle" }, g).textContent = value;
+    const path = c.rot === "h"
+      ? "M 14 35 L 36 35 L 43 22 L 55 48 L 67 22 L 79 48 L 91 22 L 103 48 L 110 35 L 132 35"
+      : "M 40 15 L 40 36 L 27 43 L 53 55 L 27 67 L 53 79 L 27 91 L 53 103 L 40 110 L 40 132";
+    createSvg("path", { d: path, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linejoin": "round" }, g);
+    if (simulationOn && check && check.correct && c.type === "resistor680") {
+      const live = c.rot === "h" ? "M 14 35 L 132 35" : "M 40 14 L 40 132";
+      createSvg("path", { d: live, class: "live-inside" }, g);
+    }
+    createSvg("text", { x: d.w / 2, y: d.h - 12, "text-anchor": "middle", class: "subtext" }, g).textContent = c.type === "resistor1m" ? "gate reference" : "source bias";
+  }
+
+  function drawPiezo(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 16, class: "body" }, g);
+    createSvg("circle", { cx: c.rot === "h" ? 48 : d.w / 2, cy: c.rot === "h" ? 46 : 56, r: 30, fill: "#fef3c7", stroke: "#92400e", "stroke-width": 3 }, g);
+    createSvg("circle", { cx: c.rot === "h" ? 48 : d.w / 2, cy: c.rot === "h" ? 46 : 56, r: 15, fill: "none", stroke: "#92400e", "stroke-width": 2 }, g);
+    createSvg("text", { x: c.rot === "h" ? 88 : d.w / 2, y: c.rot === "h" ? 28 : 101, "text-anchor": c.rot === "h" ? "start" : "middle" }, g).textContent = "Piezo";
+    createSvg("text", { x: c.rot === "h" ? 88 : d.w / 2, y: c.rot === "h" ? 48 : 118, "text-anchor": c.rot === "h" ? "start" : "middle", class: "subtext" }, g).textContent = "vibration sensor";
+    if (simulationOn && check && check.correct) {
+      const p = c.rot === "h" ? "M 76 30 C 100 22 108 30 132 30" : "M 47 28 C 36 46 36 68 47 86";
+      createSvg("path", { d: p, class: "ac-inside" }, g);
+    }
+  }
+
+  function drawJfet(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 18, class: "body" }, g);
+    createSvg("circle", { cx: 74, cy: 78, r: 48, fill: "#eef2ff", stroke: "#475569", "stroke-width": 2 }, g);
+    createSvg("path", { d: "M 99 37 L 99 119", stroke: "#0f172a", "stroke-width": 4, fill: "none", "stroke-linecap": "round" }, g);
+    createSvg("path", { d: "M 0 78 L 72 78", stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }, g);
+    createSvg("path", { d: "M 74 64 L 93 78 L 74 92", stroke: "#0f172a", "stroke-width": 2.5, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
+    createSvg("path", { d: "M 99 37 L 145 27 M 99 119 L 145 127", stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }, g);
+    if (simulationOn && check && check.correct) {
+      createSvg("path", { d: "M 99 37 L 99 119", class: "live-inside" }, g);
+    }
+    createSvg("text", { x: 74, y: 145, "text-anchor": "middle" }, g).textContent = "2N5457";
+    createSvg("text", { x: 14, y: 62, class: "pin-label" }, g).textContent = "G gate / pin 3";
+    createSvg("text", { x: 82, y: 19, class: "pin-label" }, g).textContent = "D drain / pin 1";
+    createSvg("text", { x: 82, y: 144, class: "pin-label" }, g).textContent = "S source / pin 2";
+  }
+
+  function drawSoundcard(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 18, class: "body" }, g);
+    createSvg("text", { x: 72, y: 28 }, g).textContent = "Sound card";
+    createSvg("text", { x: 72, y: 46, class: "subtext" }, g).textContent = "mic input / recorder";
+    createSvg("text", { x: 30, y: 86, class: "pin-label" }, g).textContent = "SIG";
+    createSvg("text", { x: 30, y: 139, class: "pin-label" }, g).textContent = "GND";
+    createSvg("text", { x: 146, y: 26, class: "pin-label" }, g).textContent = "+3.3 V";
+    createSvg("path", { d: "M 160 33 L 160 49 L 148 55 L 172 65 L 148 75 L 172 85 L 148 95 L 172 105 L 160 111 L 160 126 L 16 82", stroke: "#0f172a", "stroke-width": 2.5, fill: "none", "stroke-linejoin": "round" }, g);
+    createSvg("text", { x: 175, y: 82, class: "subtext" }, g).textContent = "~10k";
+    createSvg("path", { d: "M 16 135 L 108 135", stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }, g);
+    createSvg("path", { d: "M 108 128 L 108 142 M 116 131 L 116 139 M 124 134 L 124 136", stroke: "#0f172a", "stroke-width": 2.5, fill: "none", "stroke-linecap": "round" }, g);
+    if (simulationOn && check && (check.correct || check.bias.mode === "short")) {
+      createSvg("path", { d: "M 160 33 L 160 126 L 16 82", class: "live-inside" }, g);
+    }
+  }
+
+  function drawGroundbus(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 14, class: "body" }, g);
+    createSvg("path", { d: "M 28 18 L 592 18", stroke: "#0f172a", "stroke-width": 5, fill: "none", "stroke-linecap": "round" }, g);
+    createSvg("text", { x: d.w / 2, y: 52, "text-anchor": "middle" }, g).textContent = "shared ground rail";
+    createSvg("path", { d: "M 540 40 L 585 40 M 550 48 L 575 48 M 560 56 L 565 56", stroke: "#0f172a", "stroke-width": 2.5, fill: "none", "stroke-linecap": "round" }, g);
+  }
+
+  function drawTerminals(g, c, check) {
+    const defs = terminalDefs(c);
+    defs.forEach(t => {
+      let cls = "terminal";
+      const ref = { compId: c.id, term: t.name };
+      if (selectedTerminal && sameRef(selectedTerminal, ref)) cls += " selected";
+      if (wires.some(w => sameRef(w.a, ref) || sameRef(w.b, ref))) cls += " connected";
+      if (showNodeColors && check) {
+        const root = check.uf.find(termKey(ref));
+        const kind = classifyNode(root, check);
+        if (kind !== "other") cls += " node-" + kind;
+      }
+      const circle = createSvg("circle", { cx: t.x, cy: t.y, r: 8, class: cls, tabindex: 0, role: "button", "aria-label": (c.label || TYPE_LABELS[c.type]) + " terminal " + t.name }, g);
+      createSvg("title", {}, circle).textContent = (c.label || TYPE_LABELS[c.type]) + " terminal " + t.name;
+      circle.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        onTerminalClick(ref);
+      });
+      circle.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") onTerminalClick(ref);
+      });
+      const labelOffset = labelPosition(c, t);
+      const text = createSvg("text", { x: t.x + labelOffset.x, y: t.y + labelOffset.y, class: "pin-label", "text-anchor": labelOffset.anchor || "middle" }, g);
+      text.textContent = t.name;
+    });
+  }
+
+  function labelPosition(c, t) {
+    if (c.type === "jfet") {
+      if (t.name === "G") return { x: 16, y: -12, anchor: "start" };
+      if (t.name === "D") return { x: -12, y: -11, anchor: "end" };
+      return { x: -12, y: 19, anchor: "end" };
+    }
+    if (c.type === "soundcard") return { x: 26, y: 5, anchor: "start" };
+    if (c.type === "groundbus") return { x: 0, y: -12, anchor: "middle" };
+    return { x: 0, y: -13, anchor: "middle" };
+  }
+
+  function onTerminalClick(ref) {
+    selectedWireId = null;
+    selectedComponentId = ref.compId;
+    if (!selectedTerminal) {
+      selectedTerminal = { ...ref };
+      showToast("Selected " + terminalName(ref) + ". Click another terminal to wire it.");
+    } else if (sameRef(selectedTerminal, ref)) {
+      selectedTerminal = null;
+    } else {
+      addWireRefs(selectedTerminal, ref, false);
+      selectedTerminal = null;
+    }
+    render();
+  }
+
+  function terminalName(ref) {
+    const c = findComponent(ref.compId);
+    return (c ? (c.label || TYPE_LABELS[c.type]) : "part") + "." + ref.term;
+  }
+
+  function toSvgPoint(evt) {
+    const pt = svg.createSVGPoint();
+    pt.x = evt.clientX;
+    pt.y = evt.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  function onComponentPointerDown(e, c) {
+    if (e.target.classList && e.target.classList.contains("terminal")) return;
+    e.preventDefault();
+    selectedComponentId = c.id;
+    selectedWireId = null;
+    selectedTerminal = null;
+    const p = toSvgPoint(e);
+    dragging = { id: c.id, dx: p.x - c.x, dy: p.y - c.y };
+    svg.setPointerCapture && svg.setPointerCapture(e.pointerId);
+    render();
+  }
+
+  window.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const c = findComponent(dragging.id);
+    if (!c) return;
+    const p = toSvgPoint(e);
+    c.x = Math.max(0, Math.min(1040, snap(p.x - dragging.dx)));
+    c.y = Math.max(0, Math.min(670, snap(p.y - dragging.dy)));
+    render();
+  });
+
+  window.addEventListener("pointerup", () => {
+    if (dragging) {
+      dragging = null;
+      checkCircuit(false);
+    }
+  });
+
+  svg.addEventListener("pointerdown", () => {
+    selectedComponentId = null;
+    selectedWireId = null;
+    selectedTerminal = null;
+    render();
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
+    if (e.key === "Escape") {
+      selectedTerminal = null;
+      selectedWireId = null;
+      selectedComponentId = null;
+      render();
+    }
+  });
+
+  function nextHint() {
+    const check = checkCircuit(false);
+    const problems = check.diags.filter(d => d.severity === "fail" || d.severity === "warn");
+    if (!problems.length) {
+      showToast("No active hints: the circuit passes the checks.");
+      return;
+    }
+    const d = problems[hintIndex % problems.length];
+    hintIndex++;
+    callout.textContent = "Hint: " + d.title + (d.fix ? " - " + d.fix : "");
+    showToast("Hint: " + d.title);
+  }
+
+  function toggleSimulation() {
+    const check = checkCircuit(false);
+    simulationOn = !simulationOn;
+    document.getElementById("simulateBtn").textContent = simulationOn ? "Stop simulation" : "Start simulation";
+    if (simulationOn && !animationStarted) {
+      animationStarted = true;
+      requestAnimationFrame(drawScope);
+    }
+    if (simulationOn && !check.correct) showToast("Simulation can still show stuck-high, stuck-low, or floating-output symptoms. Fix red items for normal current flow.");
+    render();
+  }
+
+  function tapPiezo() {
+    pulse = 1;
+    if (!simulationOn) toggleSimulation();
+    showToast("Piezo tapped: watch the blue gate pulse and output waveform.");
+  }
+
+  function drawScope(time) {
+    requestAnimationFrame(drawScope);
+    const check = lastCheck || checkCircuit(true);
+    const w = scope.width;
+    const h = scope.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#020617";
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.24)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= w; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let y = 0; y <= h; y += 52) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+    const t = (time || 0) / 1000;
+    const bias = check.bias || { mode: "bad" };
+    let center;
+    let amp;
+    let noise = 0;
+    if (!simulationOn) {
+      center = h * 0.55; amp = 0; noise = 0;
+    } else if (bias.mode === "ok") {
+      center = h * (1 - Math.min(3.3, Math.max(0, bias.drain)) / 3.3);
+      amp = 20 + pulse * 70;
+      noise = 3;
+    } else if (bias.mode === "short") {
+      center = h * 0.96; amp = 2; noise = 1;
+    } else if (bias.mode === "open") {
+      center = h * 0.08; amp = 1; noise = 1;
+    } else if (bias.mode === "float") {
+      center = h * 0.65; amp = 22 + pulse * 50; noise = 24;
+    } else if (bias.mode === "weak") {
+      center = h * 0.25; amp = 6 + pulse * 16; noise = 5;
+    } else {
+      center = h * 0.5; amp = 0; noise = 0;
+    }
+
+    ctx.beginPath();
+    for (let x = 0; x < w; x++) {
+      const phase = (x / w) * Math.PI * 9 + t * 4;
+      const pulseShape = Math.exp(-Math.pow((x / w - 0.45 - (t % 1.4) * 0.05), 2) / 0.006);
+      const y = center + Math.sin(phase) * amp * 0.33 + Math.sin(phase * 2.9) * amp * 0.12 + pulse * pulseShape * -amp + (Math.random() - 0.5) * noise;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = simulationOn ? "#38bdf8" : "#475569";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(226,232,240,0.86)";
+    ctx.font = "20px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText(simulationOn ? scopeLabel(bias.mode) : "simulation stopped", 18, 32);
+    if (pulse > 0) pulse *= 0.965;
+    if (pulse < 0.02) pulse = 0;
+  }
+
+  function scopeLabel(mode) {
+    return {
+      ok: "biased audio output",
+      short: "stuck low: signal short",
+      open: "stuck high: open return path",
+      float: "noisy: floating gate",
+      weak: "weak: wrong source resistor",
+      bad: "not enough information"
+    }[mode] || "output preview";
+  }
+
+  document.querySelectorAll("[data-add]").forEach(btn => btn.addEventListener("click", () => addComponent(btn.dataset.add)));
+  document.getElementById("starterBtn").addEventListener("click", () => loadLayout(false));
+  document.getElementById("correctBtn").addEventListener("click", () => loadLayout(true));
+  document.getElementById("clearBtn").addEventListener("click", () => { components = []; wires = []; selectedTerminal = null; selectedComponentId = null; selectedWireId = null; lastCheck = null; render(); checkCircuit(false); });
+  document.getElementById("loadFaultBtn").addEventListener("click", () => {
+    const kind = document.getElementById("faultSelect").value;
+    if (!kind) { showToast("Choose a common mistake first."); return; }
+    loadFault(kind);
+  });
+  document.getElementById("rotateBtn").addEventListener("click", rotateSelected);
+  document.getElementById("deleteBtn").addEventListener("click", deleteSelected);
+  document.getElementById("undoWireBtn").addEventListener("click", undoLastWire);
+  document.getElementById("checkBtn").addEventListener("click", () => checkCircuit(false));
+  document.getElementById("runChecksBtn").addEventListener("click", () => checkCircuit(false));
+  document.getElementById("simulateBtn").addEventListener("click", toggleSimulation);
+  document.getElementById("hintBtn").addEventListener("click", nextHint);
+  document.getElementById("tapPiezoBtn").addEventListener("click", tapPiezo);
+  document.getElementById("targetBtn").addEventListener("click", (e) => { showTarget = !showTarget; e.target.textContent = showTarget ? "Hide target" : "Show target"; render(); });
+  document.getElementById("labelsBtn").addEventListener("click", (e) => { showNodeColors = !showNodeColors; e.target.textContent = showNodeColors ? "Hide node colors" : "Show node colors"; render(); });
+
+  loadLayout(false);
+  requestAnimationFrame(drawScope);
+})();
+</script>
+</body>
+</html>
