@@ -156,7 +156,20 @@
   .leg.tip { fill:#aab4bd; }
   .part-shadow { fill: rgba(0,0,0,0.28); }
   .part.selected .outline { stroke: var(--accent); stroke-width: 3; }
-  .ghost-part { opacity: 0.30; }
+  .part.selected .sel-halo { display: block; }
+  .sel-halo { display: none; fill: rgba(76,194,255,0.10); stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 4; pointer-events: none; }
+  .ghost-part { opacity: 0.30; pointer-events: none; }
+  /* leg grab handles */
+  .leg-handle { fill: #fff; stroke: #2a93d8; stroke-width: 2; cursor: pointer; }
+  .leg-handle:hover { fill: #cdeaff; }
+  .leg-handle.grabbed { fill: var(--accent-2); stroke: #b8860b; stroke-width: 2.5; }
+  .body-grab { cursor: grab; fill: transparent; }
+  .body-grab:active { cursor: grabbing; }
+  /* in jumper mode, parts must not intercept hole clicks */
+  svg.wiremode .part { pointer-events: none; }
+  /* while an endpoint is grabbed, only the next hole click matters — parts step aside */
+  svg.leg-grabbing .part { pointer-events: none; }
+  svg.leg-grabbing .leg-handle.grabbed { pointer-events: auto; }
 
   .wire { fill:none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
   .wire-hit { stroke: transparent; stroke-width: 16; fill:none; cursor:pointer; }
@@ -234,7 +247,7 @@
   <!-- LEFT -->
   <aside class="card panel left">
     <h2>1 · Drop a part</h2>
-    <p class="small">Pick a part, then click a hole to seat its first leg. Legs snap to the holes along the way. Click a seated part to select &amp; drag it.</p>
+    <p class="small">Pick a part, then click a hole to drop it in. To adjust: <b>drag the body</b> to move the whole part, or <b>click a leg dot</b> to pick up just that end and click where it should go. The selected part is highlighted.</p>
     <div class="palette" id="palette"></div>
 
     <h3>Jumper wires</h3>
@@ -462,6 +475,7 @@ const PHOTOS = {"transistor": "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
   let wireMode=false;
   let wireStart=null;
   let selPart=null, selWire=null;
+  let grabbedLeg=null;    // {partId, leg} — an explicitly picked-up endpoint awaiting placement
   let showGuide=true, showColors=true;
   let simOn=false, pulse=0, animStarted=false;
   let lastCheck=null, nextId=1;
@@ -608,6 +622,8 @@ const PHOTOS = {"transistor": "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
 
   function render(){
     stage.innerHTML="";
+    stage.classList.toggle("wiremode", wireMode);
+    stage.classList.toggle("leg-grabbing", !!grabbedLeg);
     const c = lastCheck || {uf:buildGraph(),N:{}};
     drawBoard(c);
     if(showGuide) drawGuide();
@@ -709,15 +725,65 @@ const PHOTOS = {"transistor": "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
 
   // ---- part glyphs ----
   function drawPart(p,c){
-    const g=svgEl("g",{class:"part"+(selPart===p.id?" selected":""),style:"cursor:grab"},stage);
-    const legHoles=PARTS[p.type].legs.map(l=>p.holes[l]).filter(Boolean).map(holePos);
+    const sel = selPart===p.id;
+    const g=svgEl("g",{class:"part"+(sel?" selected":""),"data-part":p.id},stage);
+    const def=PARTS[p.type];
+    const legHoles=def.legs.map(l=>p.holes[l]).filter(Boolean).map(holePos);
     if(legHoles.length===0) return;
-    // shadow
-    g.addEventListener("pointerdown",e=>{ if(wireMode) return; e.stopPropagation(); selPart=p.id; selWire=null; startDrag(e,p); render(); });
+    // selection halo behind the glyph (bounding box of the leg holes + body)
+    if(sel){
+      const xs=legHoles.map(h=>h.x), ys=legHoles.map(h=>h.y);
+      const minx=Math.min.apply(null,xs)-26, maxx=Math.max.apply(null,xs)+26;
+      const miny=Math.min.apply(null,ys)-58, maxy=Math.max.apply(null,ys)+22;
+      svgEl("rect",{x:minx,y:miny,width:maxx-minx,height:maxy-miny,rx:12,class:"sel-halo"},g);
+    }
+    // the glyph itself
     if(p.type==="jfet") glyphJfet(g,p);
     else if(p.type==="piezo") glyphPiezo(g,p);
     else if(p.type==="cable") glyphCable(g,p);
     else glyphResistor(g,p, p.type==="r1m"?"1M":"680", p.type==="r1m"?["#7a4a1f","#111","#2fae5a"]:["#3b5bd6","#9aa3ad","#7a4a1f"]);
+
+    // BODY grab-catcher: covers the body region (between/over the legs) for whole-part dragging.
+    const bodyRect=bodyBounds(p);
+    const grab=svgEl("rect",{x:bodyRect.x,y:bodyRect.y,width:bodyRect.w,height:bodyRect.h,rx:10,class:"body-grab"},g);
+    grab.addEventListener("pointerdown",e=>{
+      if(wireMode) return;
+      e.stopPropagation();
+      selPart=p.id; selWire=null; grabbedLeg=null;
+      startDrag(e,p);
+      render();
+    });
+
+    // LEG handles: explicit grab points at each occupied hole. Always present so a part is
+    // pickable, but visually emphasized when selected.
+    def.legs.forEach(l=>{
+      const h=p.holes[l]; if(!h) return;
+      const pt=holePos(h);
+      const isGrabbed = grabbedLeg && grabbedLeg.partId===p.id && grabbedLeg.leg===l;
+      const handle=svgEl("circle",{cx:pt.x,cy:pt.y,r:sel?8.5:7,class:"leg-handle"+(isGrabbed?" grabbed":""),"data-leg":l},g);
+      if(!sel) handle.setAttribute("opacity","0.55");
+      handle.addEventListener("pointerdown",e=>{
+        if(wireMode) return;
+        e.stopPropagation();
+        selPart=p.id; selWire=null;
+        if(isGrabbed){ grabbedLeg=null; toast("Released "+legLabel(p,l)+"."); }
+        else { grabbedLeg={partId:p.id, leg:l}; toast("Grabbed "+legLabel(p,l)+" — click a hole to move just this end."); }
+        render();
+      });
+      // small leg name tag when selected
+      if(sel){ svgEl("text",{x:pt.x,y:pt.y+3,"text-anchor":"middle","font-family":"var(--mono)","font-size":8,fill:"#0c1218","font-weight":700,"pointer-events":"none"},g).textContent=l.length>2?l[0]:l; }
+    });
+  }
+  function legLabel(p,l){ return PARTS[p.type].label+" "+l; }
+  // body bounds (in svg coords) used for the whole-part drag-catcher
+  function bodyBounds(p){
+    const hs=PARTS[p.type].legs.map(l=>p.holes[l]).filter(Boolean).map(holePos);
+    const xs=hs.map(h=>h.x), ys=hs.map(h=>h.y);
+    const minx=Math.min.apply(null,xs), maxx=Math.max.apply(null,xs);
+    const miny=Math.min.apply(null,ys);
+    // the body floats above the top-most leg hole for most glyphs; cover that zone but stay
+    // clear of the leg-handle hotspots (handles are drawn on top and win anyway)
+    return { x:minx-20, y:miny-52, w:(maxx-minx)+40, h:46 };
   }
 
   function legLine(g,from,to){ svgEl("path",{d:`M ${from.x} ${from.y} L ${to.x} ${to.y}`,class:"leg"},g); svgEl("circle",{cx:to.x,cy:to.y,r:3.2,class:"leg tip"},g); }
@@ -800,11 +866,12 @@ const PHOTOS = {"transistor": "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
       else { wires.push({id:uid("w"),a:wireStart,b:id}); wireStart=null; check(false); }
       return;
     }
-    // not placing/wiring: clicking a hole that holds a selected part's leg lets you move that leg
-    if(selPart){
-      const p=parts.find(x=>x.id===selPart);
-      if(p){ /* move nearest leg of selected part to this hole */ moveNearestLeg(p,id); check(false); return; }
+    // an endpoint is explicitly grabbed -> place exactly that endpoint here
+    if(grabbedLeg){
+      const p=parts.find(x=>x.id===grabbedLeg.partId);
+      if(p){ p.holes[grabbedLeg.leg]=id; const moved=grabbedLeg.leg; grabbedLeg=null; toast(PARTS[p.type].label+" "+moved+" → "+id); check(false); return; }
     }
+    // otherwise clicking bare holes does nothing to a placed part (no surprise moves)
   }
 
   function seatPart(type,anchor){
@@ -813,21 +880,9 @@ const PHOTOS = {"transistor": "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
     const holes={};
     legs.forEach((l,i)=> holes[l]=holesArr[i]||null);
     const p={id:uid("p"),type,holes,rot:"h"};
-    parts.push(p); selPart=p.id; selWire=null;
-    toast(PARTS[type].label+" seated. Drag it, or click its legs into other holes.");
+    parts.push(p); selPart=p.id; selWire=null; grabbedLeg=null;
+    toast(PARTS[type].label+" placed. Drag its body to move it whole, or click a leg dot to move just that end.");
     render();
-  }
-
-  function moveNearestLeg(p,id){
-    // find which leg-hole is closest to id and reassign it
-    const target=holePos(id);
-    let bestLeg=null,bd=1e9;
-    PARTS[p.type].legs.forEach(l=>{
-      const h=p.holes[l]; if(!h) { if(bestLeg===null){bestLeg=l;bd=0;} return; }
-      const pp=holePos(h); const d=(pp.x-target.x)**2+(pp.y-target.y)**2;
-      if(d<bd){bd=d;bestLeg=l;}
-    });
-    if(bestLeg) p.holes[bestLeg]=id;
   }
 
   // dragging a whole part: translate all legs by column/row delta, snapping to holes
@@ -853,16 +908,18 @@ const PHOTOS = {"transistor": "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
   window.addEventListener("pointerup",()=>{ if(drag){ drag=null; check(false); } });
   function toSvg(e){ const pt=stage.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; return pt.matrixTransform(stage.getScreenCTM().inverse()); }
 
-  stage.addEventListener("pointerdown",()=>{ if(!placing&&!wireMode){ selPart=null; selWire=null; render(); } });
+  stage.addEventListener("pointerdown",()=>{ if(!placing&&!wireMode){ selPart=null; selWire=null; grabbedLeg=null; render(); } });
 
   window.addEventListener("keydown",e=>{
+    if(e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     if(e.key==="Delete"||e.key==="Backspace") delSel();
     if(e.key==="r"||e.key==="R") rotateSel();
     if(e.key==="w"||e.key==="W") toggleWire();
-    if(e.key==="Escape"){ placing=null; wireStart=null; selPart=null; selWire=null; setPaletteActive(null); render(); }
+    if(e.key==="Escape"){ placing=null; wireStart=null; selPart=null; selWire=null; grabbedLeg=null; setPaletteActive(null); render(); }
   });
 
   function delSel(){
+    grabbedLeg=null;
     if(selWire){ wires=wires.filter(w=>w.id!==selWire); selWire=null; check(false); return; }
     if(selPart){ parts=parts.filter(p=>p.id!==selPart); selPart=null; check(false); }
   }
@@ -885,7 +942,7 @@ const PHOTOS = {"transistor": "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
     }
     check(false);
   }
-  function toggleWire(){ wireMode=!wireMode; wireStart=null; placing=null; setPaletteActive(null); document.getElementById("wireModeBtn").textContent="Jumper mode: "+(wireMode?"ON":"off"); document.getElementById("wireModeBtn").classList.toggle("primary",wireMode); render(); }
+  function toggleWire(){ wireMode=!wireMode; wireStart=null; placing=null; grabbedLeg=null; if(wireMode){ selPart=null; selWire=null; } setPaletteActive(null); document.getElementById("wireModeBtn").textContent="Jumper mode: "+(wireMode?"ON":"off"); document.getElementById("wireModeBtn").classList.toggle("primary",wireMode); render(); }
 
   // ---------- palette ----------
   function buildPalette(){
@@ -895,7 +952,7 @@ const PHOTOS = {"transistor": "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD
       b.innerHTML=`<span class="thumb"><img src="${PHOTOS[def.photo]}" alt=""></span>
         <span><span class="name">${def.label}</span><br><span class="sub">${def.legs.join(" · ")}</span></span>
         <span class="legs">${def.legs.length}p</span>`;
-      b.addEventListener("click",()=>{ placing=type; wireMode=false; document.getElementById("wireModeBtn").textContent="Jumper mode: off"; document.getElementById("wireModeBtn").classList.remove("primary"); setPaletteActive(type); toast("Click a hole to seat the "+def.label+"."); render(); });
+      b.addEventListener("click",()=>{ placing=type; wireMode=false; grabbedLeg=null; selPart=null; document.getElementById("wireModeBtn").textContent="Jumper mode: off"; document.getElementById("wireModeBtn").classList.remove("primary"); setPaletteActive(type); toast("Click a hole to place the "+def.label+"."); render(); });
       pal.appendChild(b);
     });
     // reference grid
