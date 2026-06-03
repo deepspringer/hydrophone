@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Day 0 — LED Circuit Builder (learn the interface)</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #111827;
+    --panel-2: #1f2937;
+    --paper: #f8fafc;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #334155;
+    --accent: #2563eb;
+    --good: #15803d;
+    --warn: #b45309;
+    --bad: #b91c1c;
+    --supply: #dc2626;
+    --mid: #2563eb;
+    --return: #059669;
+    --wire: #334155;
+    --current: #f97316;
+    --shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #e5e7eb;
+    background: radial-gradient(circle at top left, #1d4ed8 0, transparent 30rem),
+                radial-gradient(circle at bottom right, #b91c1c 0, transparent 26rem),
+                var(--bg);
+  }
+  header {
+    padding: 18px 24px 14px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(15, 23, 42, 0.84); backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 40;
+  }
+  header .eyebrow { font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase; color: #fca5a5; margin: 0 0 5px; }
+  header h1 { margin: 0 0 4px; font-size: clamp(1.25rem, 2vw, 1.8rem); letter-spacing: -0.02em; }
+  header p { margin: 0; color: #cbd5e1; font-size: 0.96rem; max-width: 1100px; }
+
+  main {
+    display: grid; grid-template-columns: minmax(290px, 370px) minmax(620px, 1fr) minmax(300px, 390px);
+    gap: 16px; padding: 16px; align-items: start;
+  }
+  @media (max-width: 1180px) { main { grid-template-columns: 330px minmax(620px, 1fr); } aside.right { grid-column: 1 / -1; } }
+  @media (max-width: 920px) { main { grid-template-columns: 1fr; } #svgWrap { min-height: 520px; } }
+
+  .card { background: rgba(17, 24, 39, 0.92); border: 1px solid rgba(255,255,255,0.10); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .panel { padding: 14px; }
+  .panel h2 { margin: 0 0 10px; font-size: 1.05rem; }
+  .panel h3 { margin: 0 0 10px; font-size: 0.96rem; color: #e2e8f0; }
+  .small { color: #cbd5e1; font-size: 0.9rem; line-height: 1.4; }
+  .tiny { color: #94a3b8; font-size: 0.78rem; line-height: 1.35; }
+  a { color: #93c5fd; }
+
+  .button-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .button-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  button, select {
+    border: 1px solid rgba(255,255,255,0.14); background: #243041; color: #f8fafc;
+    border-radius: 12px; padding: 9px 11px; font: inherit; font-size: 0.9rem; cursor: pointer;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+  }
+  button:hover, select:hover { background: #334155; transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button.primary { background: #1d4ed8; border-color: #60a5fa; }
+  button.primary:hover { background: #2563eb; }
+  button.good { background: #166534; border-color: #86efac; }
+  button.danger { background: #7f1d1d; border-color: #fca5a5; }
+  button.ghost { background: transparent; }
+
+  .palette-item { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; text-align: left; min-height: 52px; }
+  .palette-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,0.08); font-weight: 700; }
+
+  .section { border-top: 1px solid rgba(255,255,255,0.10); margin-top: 14px; padding-top: 14px; }
+
+  .workbench { display: flex; flex-direction: column; overflow: hidden; min-height: 0; align-self: start; }
+  @media (min-width: 921px) { aside.left, aside.right { align-self: start; max-height: calc(100vh - 112px); overflow: auto; } }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.10); background: rgba(15, 23, 42, 0.5); flex-wrap: wrap;
+  }
+  .toolbar .spacer { flex: 1; }
+  .status-pill { border-radius: 999px; padding: 7px 11px; font-size: 0.84rem; border: 1px solid rgba(255,255,255,0.13); color: #e2e8f0; background: rgba(255,255,255,0.06); }
+  .status-pill.good { color: #bbf7d0; border-color: #22c55e; background: rgba(22, 101, 52, 0.25); }
+  .status-pill.bad { color: #fecaca; border-color: #ef4444; background: rgba(127, 29, 29, 0.25); }
+  .status-pill.warn { color: #fde68a; border-color: #f59e0b; background: rgba(146, 64, 14, 0.25); }
+
+  #svgWrap {
+    flex: none; width: 100%; aspect-ratio: 1100 / 720; min-height: 520px;
+    max-height: calc(100vh - 178px); background: #f8fafc; position: relative; overflow: hidden;
+  }
+  svg#board { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; }
+
+  .grid-line { stroke: #e2e8f0; stroke-width: 1; }
+  .grid-major { stroke: #cbd5e1; stroke-width: 1.2; }
+  .ghost { opacity: 0.13; pointer-events: none; }
+  .ghost text { fill: #0f172a; }
+
+  .wire-hit { stroke: transparent; stroke-width: 18; fill: none; cursor: pointer; }
+  .wire { fill: none; stroke: var(--wire); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+  .wire.selected { stroke: var(--accent); stroke-width: 6; }
+  .wire.live { stroke: var(--current); stroke-dasharray: 12 10; animation: dash 0.55s linear infinite; }
+  .wire-end-stub { fill: none; stroke: var(--wire); stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+  .wire-end-stub.selected { stroke: var(--accent); }
+  .wire-end-stub.live { stroke: var(--current); stroke-dasharray: 12 10; animation: dash 0.55s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -44; } }
+
+  .component { cursor: grab; }
+  .component.dragging { cursor: grabbing; opacity: 0.88; }
+  .component .body { fill: #ffffff; stroke: #475569; stroke-width: 2; filter: drop-shadow(0 5px 7px rgba(15,23,42,0.10)); }
+  .component.selected .body { stroke: var(--accent); stroke-width: 3; }
+  .component text { fill: #0f172a; font-size: 13px; font-weight: 700; pointer-events: none; }
+  .component .subtext { font-size: 11px; font-weight: 600; fill: #475569; }
+  .component .pin-label { font-size: 11px; fill: #1f2937; }
+  .terminal { fill: #f8fafc; stroke: #0f172a; stroke-width: 2.4; cursor: crosshair; }
+  .terminal:hover { fill: #fef08a; stroke-width: 3.1; }
+  .terminal.connected { stroke-width: 3.2; filter: drop-shadow(0 0 2px rgba(15, 23, 42, 0.38)); }
+  .terminal.selected { fill: #60a5fa; stroke: #1d4ed8; stroke-width: 4; }
+  .terminal.node-supply { fill: #fee2e2; stroke: var(--supply); }
+  .terminal.node-mid { fill: #dbeafe; stroke: var(--mid); }
+  .terminal.node-return { fill: #dcfce7; stroke: var(--return); }
+  .terminal.node-short { fill: #fee2e2; stroke: var(--bad); }
+
+  .live-inside { stroke: var(--current); stroke-width: 4; stroke-linecap: round; fill: none; stroke-dasharray: 9 9; animation: dash 0.55s linear infinite; }
+
+  .callout {
+    position: absolute; left: 14px; bottom: 14px; max-width: 500px;
+    background: rgba(15, 23, 42, 0.88); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 14px; padding: 10px 12px; font-size: 0.86rem; line-height: 1.35; backdrop-filter: blur(6px);
+  }
+
+  .diagnostic-list { display: flex; flex-direction: column; gap: 8px; }
+  .diag { border-radius: 14px; padding: 10px 11px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); }
+  .diag.ok { border-color: rgba(34, 197, 94, 0.65); background: rgba(22, 101, 52, 0.18); }
+  .diag.warn { border-color: rgba(245, 158, 11, 0.75); background: rgba(146, 64, 14, 0.18); }
+  .diag.fail { border-color: rgba(239, 68, 68, 0.75); background: rgba(127, 29, 29, 0.18); }
+  .diag strong { display: block; margin-bottom: 3px; }
+  .diag .fix { color: #cbd5e1; font-size: 0.86rem; line-height: 1.35; }
+
+  .node-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; color: #e2e8f0; }
+  .node-table th, .node-table td { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 6px 4px; text-align: left; }
+  .node-dot { display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-right: 5px; vertical-align: -1px; }
+  .dot-supply { background: var(--supply); }
+  .dot-mid { background: var(--mid); }
+  .dot-return { background: var(--return); }
+  .dot-other { background: #94a3b8; }
+  .dot-short { background: var(--bad); }
+
+  .meter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .meter { border-radius: 14px; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.05); padding: 10px; }
+  .meter .label { color: #94a3b8; font-size: 0.78rem; }
+  .meter .value { font-weight: 800; font-size: 1.08rem; margin-top: 2px; }
+  .meter .value.hot { color: #fca5a5; }
+  .meter .value.lit { color: #fde047; }
+  .meter .value.pinched { color: #93c5fd; }
+  .slider-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; margin-top: 10px; }
+  .slider-row input[type=range] { width: 100%; accent-color: #60a5fa; }
+  .slider-readout { display: flex; justify-content: space-between; margin-top: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92rem; color: #fde68a; }
+  .slider-readout span:first-child { color: #94a3b8; }
+  .jfet-body-stroke { stroke: #0f172a; stroke-width: 3; fill: none; }
+  .jfet-arrow { fill: #0f172a; stroke: none; }
+  .jfet-channel { stroke: #0f172a; stroke-width: 4; stroke-linecap: round; }
+  canvas#scope { width: 100%; height: 150px; border-radius: 14px; background: #020617; border: 1px solid rgba(255,255,255,0.13); display: block; }
+  .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.82rem; color: #cbd5e1; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 18px; height: 5px; border-radius: 999px; display: inline-block; }
+
+  .checklist { margin: 0; padding-left: 18px; color: #cbd5e1; line-height: 1.45; font-size: 0.9rem; }
+  .toast {
+    position: fixed; top: 88px; right: 20px; max-width: 420px; background: rgba(15,23,42,0.95); color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.16); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; display: none; z-index: 99;
+  }
+  .toast.show { display: block; }
+  details { border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); padding: 9px 11px; margin-top: 8px; }
+  summary { cursor: pointer; font-weight: 700; }
+</style>
+</head>
+<body>
+<header>
+  <p class="eyebrow">Electronics · Day 0 · learn the builder</p>
+  <h1>LED Circuit Builder</h1>
+  <p>Same builder you'll use for the hydrophone labs — here the circuit is just a battery, a resistor, and an LED. Add parts from the palette, drag them, click one terminal then another to wire them, then <b>Check</b> and <b>Simulate</b>. Learn the tools on an easy circuit first.</p>
+</header>
+
+<main>
+  <aside class="card panel left">
+    <h2>1. Build the circuit</h2>
+    <p class="small">Click a part to add it. Drag parts on the board. Click one terminal, then another terminal, to place a wire.</p>
+
+    <div class="button-grid" aria-label="parts palette">
+      <button class="palette-item" data-add="battery"><span class="palette-icon">3V</span><span>Coin-cell battery<br><span class="tiny">+ and – terminals</span></span></button>
+      <button class="palette-item" data-add="resistor"><span class="palette-icon">R</span><span>Resistor<br><span class="tiny">limits the current</span></span></button>
+      <button class="palette-item" data-add="led"><span class="palette-icon">&#9166;</span><span>LED<br><span class="tiny">long leg = +, flat side = –</span></span></button>
+      <button class="palette-item" data-add="jfet"><span class="palette-icon">J</span><span>N-channel JFET<br><span class="tiny">gate controls drain current</span></span></button>
+      <button class="palette-item" data-add="vsource"><span class="palette-icon">V<sub>G</sub></span><span>Gate voltage source<br><span class="tiny">slider — sets V<sub>G</sub></span></span></button>
+    </div>
+
+    <div class="section">
+      <h3>Starter layouts</h3>
+      <div class="button-row">
+        <button class="primary" id="starterBtn">Load loose parts</button>
+        <button class="good" id="correctBtn">Load correct circuit</button>
+        <button class="primary" id="jfetStarterBtn">Load JFET dimmer</button>
+        <button class="danger" id="clearBtn">Clear</button>
+      </div>
+      <label class="tiny" for="faultSelect">Practice troubleshooting:</label>
+      <div class="button-row">
+        <select id="faultSelect" aria-label="common mistake selector">
+          <option value="">Choose a common mistake...</option>
+          <option value="noResistor">Resistor left out</option>
+          <option value="ledReversed">LED in backwards</option>
+          <option value="openLoop">Loop not closed</option>
+          <option value="shortCircuit">Battery shorted (+ straight to –)</option>
+          <option value="resistorAcross">Resistor across the battery, not in series</option>
+          <option value="jfetDrainSwap">JFET drain/source swapped</option>
+          <option value="jfetGateFloat">JFET gate left floating</option>
+          <option value="jfetSourceNotGround">JFET source not at the – rail</option>
+        </select>
+        <button id="loadFaultBtn">Load fault</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Editing</h3>
+      <div class="button-row">
+        <button id="rotateBtn">Rotate selected</button>
+        <button id="deleteBtn">Delete selected</button>
+        <button id="undoWireBtn">Undo last wire</button>
+      </div>
+      <p class="tiny">Keyboard: Delete removes the selected part or wire. Esc cancels a selected terminal. Connected terminals get a halo and a short visible stub.</p>
+    </div>
+
+    <div class="section">
+      <h3>What students should discover</h3>
+      <ol class="checklist">
+        <li>Current only flows around a <em>complete</em> loop, from + back to –.</li>
+        <li>The LED only lights when its long leg (anode) faces the + side.</li>
+        <li>The resistor goes <em>in series</em> to hold back the current.</li>
+        <li>With no resistor, too much current flows and the LED burns out.</li>
+        <li>These are the same Check / Simulate / mistake-finder tools as the real labs.</li>
+      </ol>
+      <details>
+        <summary>Teacher note</summary>
+        <p class="tiny">This is a simplified educational model meant to teach the builder's interface, not a SPICE-accurate simulation. The burnout rule here is deliberately crisp ("no resistor = it dies") because that is the safe habit to teach. In reality an LED on a low source such as a 3&nbsp;V coin cell may survive briefly or simply glow before failing — worth saying aloud at the bench.</p>
+      </details>
+    </div>
+  </aside>
+
+  <section class="card workbench">
+    <div class="toolbar">
+      <button class="primary" id="checkBtn">Check circuit</button>
+      <button class="good" id="simulateBtn">Start simulation</button>
+      <button id="hintBtn">Next hint</button>
+      <button class="ghost" id="targetBtn">Hide target</button>
+      <button class="ghost" id="labelsBtn">Hide node colors</button>
+      <span class="spacer"></span>
+      <span id="statusPill" class="status-pill warn">Not checked yet</span>
+    </div>
+    <div id="svgWrap">
+      <svg id="board" viewBox="0 0 1100 720" preserveAspectRatio="xMinYMin meet" role="img" aria-label="circuit builder work area"></svg>
+      <div class="callout" id="callout">Tip: wire battery + &rarr; resistor &rarr; LED long-leg, then LED flat-side &rarr; battery –. That single loop is the whole circuit.</div>
+    </div>
+  </section>
+
+  <aside class="card panel right">
+    <h2>2. Diagnose and simulate</h2>
+    <div class="button-row">
+      <button class="primary" id="runChecksBtn">Run checks</button>
+    </div>
+
+    <div class="meter-grid" id="meters">
+      <div class="meter"><div class="label">Supply</div><div class="value" id="meterSupply">--</div></div>
+      <div class="meter"><div class="label">LED</div><div class="value" id="meterLed">--</div></div>
+      <div class="meter"><div class="label">Current</div><div class="value" id="meterCurrent">--</div></div>
+      <div class="meter"><div class="label">Brightness</div><div class="value" id="meterBright">--</div></div>
+      <div class="meter"><div class="label">V<sub>GS</sub></div><div class="value" id="meterVgs">--</div></div>
+      <div class="meter"><div class="label">I<sub>D</sub></div><div class="value" id="meterId">--</div></div>
+    </div>
+
+    <div class="section" id="gateControl" hidden>
+      <h3>Gate voltage control</h3>
+      <p class="tiny">Drag the slider to set V<sub>G</sub> (the voltage at the gate, measured to the – rail). For an N-channel JFET, V<sub>GS</sub> = 0 lets the most current through; pulling V<sub>GS</sub> negative <em>pinches off</em> the channel until the LED goes dark near V<sub>P</sub> &asymp; –3 V.</p>
+      <div class="slider-row">
+        <span class="tiny">-3.0 V</span>
+        <input type="range" id="vgSlider" min="-3" max="0" step="0.05" value="0" aria-label="gate voltage" />
+        <span class="tiny">0 V</span>
+      </div>
+      <div class="slider-readout"><span>V<sub>G</sub> = </span><span id="vgReadout">0.00 V</span></div>
+    </div>
+
+    <div class="section">
+      <h3>Output preview</h3>
+      <canvas id="scope" width="720" height="260" aria-label="output preview"></canvas>
+      <p class="tiny" id="scopeCaption">Build and check the circuit, then start the simulation. A correct build holds a steady "on" level. No resistor spikes once, then goes dead.</p>
+      <div class="legend">
+        <span class="legend-item"><span class="swatch" style="background:var(--current)"></span> Current flowing (on)</span>
+        <span class="legend-item"><span class="swatch" style="background:#475569"></span> No current</span>
+        <span class="legend-item"><span class="node-dot dot-supply"></span> Supply (+) node</span>
+        <span class="legend-item"><span class="node-dot dot-return"></span> Return (–) node</span>
+        <span class="legend-item"><span class="node-dot dot-mid"></span> Resistor&rarr;LED junction</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Mistake finder</h3>
+      <div id="diagnostics" class="diagnostic-list"></div>
+    </div>
+
+    <div class="section">
+      <h3>Node report</h3>
+      <table class="node-table" id="nodeTable">
+        <thead><tr><th>Node</th><th>Should contain</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h3>Where this is going</h3>
+      <p class="tiny">Once you're comfortable adding parts, wiring terminals, checking, and reading the mistake finder here, the hydrophone labs use the exact same controls — just with more parts (a JFET, a piezo, a recorder) and a more interesting signal.</p>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  const svg = document.getElementById("board");
+  const diagnosticsEl = document.getElementById("diagnostics");
+  const statusPill = document.getElementById("statusPill");
+  const callout = document.getElementById("callout");
+  const nodeTableBody = document.querySelector("#nodeTable tbody");
+  const toastEl = document.getElementById("toast");
+  const scope = document.getElementById("scope");
+  const ctx = scope.getContext("2d");
+
+  let components = [];
+  let wires = [];
+  let selectedTerminal = null;
+  let selectedComponentId = null;
+  let selectedWireId = null;
+  let showTarget = true;
+  let showNodeColors = true;
+  let simulationOn = false;
+  let hintIndex = 0;
+  let lastCheck = null;
+  let nextComponentId = 1;
+  let nextWireId = 1;
+  let dragging = null;
+  let burned = false;        // latched LED burnout
+  let burnAnim = 0;          // scope burnout animation clock
+  let gateVoltage = 0;       // slider value, V_G in volts (−3..0 for N-JFET depletion)
+
+  const TYPE_LABELS = { battery: "Battery", resistor: "Resistor", led: "LED", jfet: "N-channel JFET", vsource: "Gate voltage source" };
+
+  const GOOD_LAYOUT = {
+    components: [
+      { id: "battery", type: "battery", x: 120, y: 250, rot: "v" },
+      { id: "r", type: "resistor", x: 300, y: 110, rot: "h" },
+      { id: "led", type: "led", x: 600, y: 250, rot: "v" }
+    ],
+    wires: [
+      ["battery:POS", "r:A"],
+      ["r:B", "led:ANODE"],
+      ["led:CATHODE", "battery:NEG"]
+    ]
+  };
+
+  // JFET dimmer: battery+ -> R -> LED -> JFET drain ; JFET source -> battery -
+  // JFET gate <- vsource+ ; vsource- -> battery- (shared ground for V_GS to mean anything)
+  const JFET_LAYOUT = {
+    components: [
+      { id: "battery", type: "battery", x: 90, y: 320, rot: "v" },
+      { id: "r",       type: "resistor", x: 260, y: 130, rot: "h" },
+      { id: "led",     type: "led",      x: 510, y: 270, rot: "v" },
+      { id: "jfet",    type: "jfet",     x: 700, y: 280, rot: "h" },
+      { id: "vsource", type: "vsource",  x: 770, y: 510, rot: "v" }
+    ],
+    wires: [
+      ["battery:POS", "r:A"],
+      ["r:B",         "led:ANODE"],
+      ["led:CATHODE", "jfet:D"],
+      ["jfet:S",      "battery:NEG"],
+      ["jfet:G",      "vsource:POS"],
+      ["vsource:NEG", "battery:NEG"]
+    ]
+  };
+
+  function snap(n) { return Math.round(n / 10) * 10; }
+
+  function showToast(message) {
+    toastEl.textContent = message;
+    toastEl.classList.add("show");
+    window.clearTimeout(showToast._timer);
+    showToast._timer = window.setTimeout(() => toastEl.classList.remove("show"), 2600);
+  }
+  function uid(prefix) { return prefix === "c" ? "c" + (nextComponentId++) : "w" + (nextWireId++); }
+
+  function createSvg(tag, attrs, parent) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attrs || {}).forEach(([k, v]) => { if (v !== null && v !== undefined) el.setAttribute(k, String(v)); });
+    if (parent) parent.appendChild(el);
+    return el;
+  }
+
+  function componentDims(c) {
+    if (c.type === "resistor") return c.rot === "h" ? { w: 150, h: 70 } : { w: 80, h: 150 };
+    if (c.type === "battery") return c.rot === "v" ? { w: 96, h: 140 } : { w: 150, h: 92 };
+    if (c.type === "led") return c.rot === "h" ? { w: 150, h: 92 } : { w: 92, h: 150 };
+    if (c.type === "jfet") return c.rot === "h" ? { w: 150, h: 130 } : { w: 130, h: 150 };
+    if (c.type === "vsource") return c.rot === "v" ? { w: 96, h: 130 } : { w: 130, h: 96 };
+    return { w: 100, h: 80 };
+  }
+
+  // Terminals sit PROUD of the body (LEAD past the edge) and carry an outward
+  // direction (dx,dy). Wires attach at the proud point and exit along (dx,dy),
+  // so a connection visibly juts out of the device instead of running under it.
+  const LEAD = 16;
+  function terminalDefs(c) {
+    const d = componentDims(c);
+    if (c.type === "resistor") {
+      return c.rot === "h"
+        ? [{ name: "A", x: -LEAD, y: d.h / 2, dx: -1, dy: 0 }, { name: "B", x: d.w + LEAD, y: d.h / 2, dx: 1, dy: 0 }]
+        : [{ name: "A", x: d.w / 2, y: -LEAD, dx: 0, dy: -1 }, { name: "B", x: d.w / 2, y: d.h + LEAD, dx: 0, dy: 1 }];
+    }
+    if (c.type === "battery") {
+      return c.rot === "v"
+        ? [{ name: "POS", x: d.w / 2, y: -LEAD, dx: 0, dy: -1 }, { name: "NEG", x: d.w / 2, y: d.h + LEAD, dx: 0, dy: 1 }]
+        : [{ name: "POS", x: d.w + LEAD, y: d.h / 2, dx: 1, dy: 0 }, { name: "NEG", x: -LEAD, y: d.h / 2, dx: -1, dy: 0 }];
+    }
+    if (c.type === "led") {
+      return c.rot === "h"
+        ? [{ name: "ANODE", x: -LEAD, y: d.h / 2, dx: -1, dy: 0 }, { name: "CATHODE", x: d.w + LEAD, y: d.h / 2, dx: 1, dy: 0 }]
+        : [{ name: "ANODE", x: d.w / 2, y: -LEAD, dx: 0, dy: -1 }, { name: "CATHODE", x: d.w / 2, y: d.h + LEAD, dx: 0, dy: 1 }];
+    }
+    if (c.type === "jfet") {
+      // horizontal: drain LEFT, source RIGHT, gate BOTTOM (the JFET sits inline in a horizontal loop,
+      // gate-control wire drops down to the gate voltage source)
+      return c.rot === "h"
+        ? [
+            { name: "D", x: -LEAD,     y: d.h / 2,  dx: -1, dy: 0 },
+            { name: "S", x: d.w + LEAD, y: d.h / 2, dx: 1,  dy: 0 },
+            { name: "G", x: d.w / 2,    y: d.h + LEAD, dx: 0, dy: 1 }
+          ]
+        : [
+            { name: "D", x: d.w / 2, y: -LEAD,       dx: 0,  dy: -1 },
+            { name: "S", x: d.w / 2, y: d.h + LEAD,  dx: 0,  dy: 1 },
+            { name: "G", x: -LEAD,   y: d.h / 2,     dx: -1, dy: 0 }
+          ];
+    }
+    if (c.type === "vsource") {
+      // adjustable supply, labelled V_G. POS is the gate-side output, NEG returns to circuit ground.
+      return c.rot === "v"
+        ? [{ name: "POS", x: d.w / 2, y: -LEAD, dx: 0, dy: -1 }, { name: "NEG", x: d.w / 2, y: d.h + LEAD, dx: 0, dy: 1 }]
+        : [{ name: "POS", x: d.w + LEAD, y: d.h / 2, dx: 1, dy: 0 }, { name: "NEG", x: -LEAD, y: d.h / 2, dx: -1, dy: 0 }];
+    }
+    return [];
+  }
+
+  function termKey(ref) { return ref.compId + ":" + ref.term; }
+  function findComponent(id) { return components.find(c => c.id === id); }
+  function compsByType(type) { return components.filter(c => c.type === type); }
+  function firstComp(type) { return compsByType(type)[0]; }
+
+  function getTermPos(ref) {
+    const c = findComponent(ref.compId);
+    if (!c) return { x: 0, y: 0 };
+    const t = terminalDefs(c).find(item => item.name === ref.term);
+    if (!t) return { x: c.x, y: c.y };
+    return { x: c.x + t.x, y: c.y + t.y };
+  }
+
+  function parseRef(s) {
+    const parts = s.split(":");
+    const c = components.find(item => item.layoutId === parts[0] || item.id === parts[0]);
+    return c ? { compId: c.id, term: parts[1] } : null;
+  }
+
+  class UnionFind {
+    constructor() { this.parent = new Map(); }
+    add(x) { if (!this.parent.has(x)) this.parent.set(x, x); }
+    find(x) { this.add(x); const p = this.parent.get(x); if (p !== x) this.parent.set(x, this.find(p)); return this.parent.get(x); }
+    union(a, b) { const ra = this.find(a), rb = this.find(b); if (ra !== rb) this.parent.set(rb, ra); }
+  }
+
+  function buildGraph() {
+    const uf = new UnionFind();
+    components.forEach(c => terminalDefs(c).forEach(t => uf.add(termKey({ compId: c.id, term: t.name }))));
+    wires.forEach(w => {
+      if (findComponent(w.a.compId) && findComponent(w.b.compId)) uf.union(termKey(w.a), termKey(w.b));
+    });
+    return uf;
+  }
+
+  function nodeOf(uf, comp, term) { return comp ? uf.find(termKey({ compId: comp.id, term })) : null; }
+  function sameNode(uf, a, b) { return a && b && uf.find(a) === uf.find(b); }
+  function componentBetween(uf, comp, n1, n2) {
+    if (!comp || !n1 || !n2) return false;
+    const terms = terminalDefs(comp);
+    if (terms.length < 2) return false;
+    const a = nodeOf(uf, comp, terms[0].name);
+    const b = nodeOf(uf, comp, terms[1].name);
+    return (sameNode(uf, a, n1) && sameNode(uf, b, n2)) || (sameNode(uf, a, n2) && sameNode(uf, b, n1));
+  }
+
+  function addDiagnostic(list, severity, title, fix, code) { list.push({ severity, title, fix, code: code || title }); }
+
+  // ---- polarity-agnostic topology helpers ----
+  // Is there a complete series chain + -> R -> LED -> - (in either part order, either LED orientation)?
+  function seriesLoopClosed(uf, battery, resistor, led) {
+    if (!battery || !resistor || !led) return false;
+    const P = nodeOf(uf, battery, "POS"), N = nodeOf(uf, battery, "NEG");
+    if (!P || !N || sameNode(uf, P, N)) return false;
+    const rEnds = [nodeOf(uf, resistor, "A"), nodeOf(uf, resistor, "B")];
+    const lEnds = [nodeOf(uf, led, "ANODE"), nodeOf(uf, led, "CATHODE")];
+    function chain(first, second) {
+      for (let i = 0; i < 2; i++) {
+        if (sameNode(uf, first[i], P)) {
+          const mid = first[1 - i];
+          for (let j = 0; j < 2; j++) {
+            if (sameNode(uf, mid, second[j]) && sameNode(uf, second[1 - j], N)) return true;
+          }
+        }
+      }
+      return false;
+    }
+    return chain(rEnds, lEnds) || chain(lEnds, rEnds);
+  }
+  // Is the resistor in series with the LED (adjacent to a battery terminal, its other end meeting the LED)?
+  // True regardless of LED direction or whether the far side has reached the battery yet.
+  function resistorInSeries(uf, battery, resistor, led) {
+    if (!battery || !resistor || !led) return false;
+    const P = nodeOf(uf, battery, "POS"), N = nodeOf(uf, battery, "NEG");
+    const rA = nodeOf(uf, resistor, "A"), rB = nodeOf(uf, resistor, "B");
+    const lA = nodeOf(uf, led, "ANODE"), lC = nodeOf(uf, led, "CATHODE");
+    // the resistor's far end must meet the LED at a genuine mid-junction, not the opposite rail
+    function mid(m, opp) {
+      if (sameNode(uf, m, lA) && !sameNode(uf, lA, opp)) return true;
+      if (sameNode(uf, m, lC) && !sameNode(uf, lC, opp)) return true;
+      return false;
+    }
+    if (sameNode(uf, rA, P) && mid(rB, N)) return true;
+    if (sameNode(uf, rB, P) && mid(rA, N)) return true;
+    if (sameNode(uf, rA, N) && mid(rB, P)) return true;
+    if (sameNode(uf, rB, N) && mid(rA, P)) return true;
+    return false;
+  }
+  // Which LED terminal faces the + supply? -> "ANODE" (forward), "CATHODE" (reversed), or null (not in path).
+  function ledSupplyTerminal(uf, battery, resistor, led) {
+    if (!battery || !led) return null;
+    const P = nodeOf(uf, battery, "POS");
+    const A = nodeOf(uf, led, "ANODE"), C = nodeOf(uf, led, "CATHODE");
+    if (sameNode(uf, A, P)) return "ANODE";
+    if (sameNode(uf, C, P)) return "CATHODE";
+    if (resistor) {
+      const rA = nodeOf(uf, resistor, "A"), rB = nodeOf(uf, resistor, "B");
+      let rOther = null;
+      if (sameNode(uf, rA, P)) rOther = rB; else if (sameNode(uf, rB, P)) rOther = rA;
+      if (rOther) {
+        if (sameNode(uf, rOther, A)) return "ANODE";
+        if (sameNode(uf, rOther, C)) return "CATHODE";
+      }
+    }
+    return null;
+  }
+
+  // JFET-loop topology check: is the JFET in series with the LED, source at battery –,
+  // and the gate driven by the vsource POS (with vsource NEG returning to –)?
+  // Returns a small report rather than a single bool so the checker can give specific diagnostics.
+  function jfetTopology(uf, battery, resistor, led, jfet, vsource) {
+    const report = {
+      drainAtMid: false,       // JFET drain reaches the resistor->LED chain on the supply side
+      sourceAtNeg: false,      // JFET source reaches battery –
+      drainSourceSwapped: false,
+      gateDriven: false,       // gate reaches vsource +
+      vsourceReturned: false,  // vsource – reaches battery –
+      gateFloating: false,
+      jfetInLoop: false        // overall: JFET sits between LED and the – return
+    };
+    if (!battery || !jfet) return report;
+    const P = nodeOf(uf, battery, "POS"), N = nodeOf(uf, battery, "NEG");
+    const D = nodeOf(uf, jfet, "D"), S = nodeOf(uf, jfet, "S"), G = nodeOf(uf, jfet, "G");
+    if (!N) return report;
+    if (sameNode(uf, S, N)) report.sourceAtNeg = true;
+    if (sameNode(uf, D, N)) report.drainSourceSwapped = true;
+    // gate path
+    if (vsource) {
+      const Vp = nodeOf(uf, vsource, "POS"), Vn = nodeOf(uf, vsource, "NEG");
+      if (sameNode(uf, G, Vp)) report.gateDriven = true;
+      if (sameNode(uf, Vn, N)) report.vsourceReturned = true;
+    }
+    if (!report.gateDriven) report.gateFloating = true;
+    // does the drain meet the LED's downstream end (the side away from the supply via the resistor)?
+    if (led && resistor) {
+      const lA = nodeOf(uf, led, "ANODE"), lC = nodeOf(uf, led, "CATHODE");
+      const rA = nodeOf(uf, resistor, "A"), rB = nodeOf(uf, resistor, "B");
+      // find which resistor end is at +, then the LED end at the other resistor end is the "downstream" LED end
+      let rUp = null, rDown = null;
+      if (sameNode(uf, rA, P)) { rUp = rA; rDown = rB; }
+      else if (sameNode(uf, rB, P)) { rUp = rB; rDown = rA; }
+      if (rDown) {
+        // anode side at rDown means cathode is downstream
+        if (sameNode(uf, lA, rDown) && sameNode(uf, D, lC)) report.drainAtMid = true;
+        else if (sameNode(uf, lC, rDown) && sameNode(uf, D, lA)) report.drainAtMid = true; // reversed LED but D still meets it
+      }
+    } else if (led) {
+      // no resistor: drain just needs to meet one LED leg, with the other LED leg at +
+      const lA = nodeOf(uf, led, "ANODE"), lC = nodeOf(uf, led, "CATHODE");
+      if ((sameNode(uf, lA, P) && sameNode(uf, D, lC)) || (sameNode(uf, lC, P) && sameNode(uf, D, lA))) report.drainAtMid = true;
+    }
+    report.jfetInLoop = report.drainAtMid && report.sourceAtNeg;
+    return report;
+  }
+
+  function checkCircuit(silent) {
+    const uf = buildGraph();
+    const battery = firstComp("battery");
+    const resistor = firstComp("resistor");
+    const led = firstComp("led");
+    const jfet = firstComp("jfet");
+    const vsource = firstComp("vsource");
+    const diags = [];
+
+    // Presence checks. Battery, resistor, LED are always required.
+    [["battery", "Battery"], ["resistor", "Resistor"], ["led", "LED"]].forEach(([type, label]) => {
+      const count = compsByType(type).length;
+      if (count === 0) addDiagnostic(diags, "fail", label + " is missing", "Add this part from the palette.", "missing-" + type);
+      else if (count > 1) addDiagnostic(diags, "warn", "More than one " + label, "The checker uses the first one it finds. Delete extras.", "duplicate-" + type);
+      else addDiagnostic(diags, "ok", label + " present", "", "present-" + type);
+    });
+    // JFET-related presence is only required when a JFET is on the board (since the original
+    // Day-0 circuit doesn't need one). If a JFET is present, we also need the gate voltage source.
+    if (jfet) {
+      addDiagnostic(diags, "ok", "JFET present", "", "present-jfet");
+      const vsCount = compsByType("vsource").length;
+      if (vsCount === 0) addDiagnostic(diags, "fail", "Gate voltage source is missing", "Add the gate voltage source so the slider has something to drive.", "missing-vsource");
+      else if (vsCount > 1) addDiagnostic(diags, "warn", "More than one gate voltage source", "The checker uses the first one it finds. Delete extras.", "duplicate-vsource");
+    }
+
+    const nodes = {};
+    if (battery) { nodes.pos = nodeOf(uf, battery, "POS"); nodes.neg = nodeOf(uf, battery, "NEG"); }
+    if (led) { nodes.anode = nodeOf(uf, led, "ANODE"); nodes.cathode = nodeOf(uf, led, "CATHODE"); }
+
+    // ---- polarity-agnostic topology facts ----
+    const P = nodes.pos, N = nodes.neg;
+    const shorted = !!(battery && P && N && sameNode(uf, P, N));
+
+    // battery short is always checked (it's a bench safety thing in both topologies)
+    if (shorted) addDiagnostic(diags, "fail", "Battery is shorted", "The + terminal is tied straight to –. Current must pass through the resistor and LED instead.", "short");
+    else if (battery) addDiagnostic(diags, "ok", "Battery + and – are separate", "", "no-short");
+
+    // Branch by whether a JFET is in play.
+    let correct = false;
+    let topo;
+
+    if (!jfet) {
+      // ---- original LED-only loop checks ----
+      const loopClosed = seriesLoopClosed(uf, battery, resistor, led);
+      const resistorSeries = resistorInSeries(uf, battery, resistor, led);
+      const resistorAcross = !!(battery && resistor && componentBetween(uf, resistor, P, N));
+      const ledAcrossNoR = !!(battery && led && componentBetween(uf, led, P, N));
+      const supplyTerm = ledSupplyTerminal(uf, battery, resistor, led);
+      const ledForward = supplyTerm === "ANODE";
+      const ledReversed = supplyTerm === "CATHODE";
+
+      if (battery && resistor && led && !shorted) {
+        if (resistorSeries) addDiagnostic(diags, "ok", "Resistor is in series with the LED", "It sits in the loop between the battery and the LED, holding back the current.", "resistor-series-ok");
+        else if (ledAcrossNoR) addDiagnostic(diags, "fail", "No resistor in series with the LED", "The LED is wired straight across the battery with nothing to limit the current. Put the resistor in series with it.", "no-resistor-series");
+        else if (resistorAcross) addDiagnostic(diags, "warn", "Resistor is across the battery, not in series", "Move one resistor leg so it feeds the LED, not straight back to the other battery terminal.", "resistor-across");
+        else addDiagnostic(diags, "fail", "Resistor isn't wired into the loop", "Wire one battery terminal &rarr; resistor &rarr; LED &rarr; the other battery terminal.", "resistor-missing-path");
+      }
+      if (battery && led && !shorted) {
+        if (ledForward) addDiagnostic(diags, "ok", "LED is facing the right way", "Long leg (anode) toward +, flat side (cathode) toward –.", "led-forward");
+        else if (ledReversed) addDiagnostic(diags, "fail", "LED is in backwards", "An LED only conducts one way. Flip it so the long leg (anode) faces the + side.", "led-reversed");
+        else addDiagnostic(diags, "fail", "LED isn't wired into the loop", "Wire the LED's long leg toward the resistor/+ side and its flat side toward –.", "led-missing-path");
+      }
+      if (battery && led && !shorted) {
+        if (loopClosed) addDiagnostic(diags, "ok", "Loop is complete", "There's a full path from + through the parts and back to –.", "loop-ok");
+        else if (!ledAcrossNoR) addDiagnostic(diags, "fail", "Loop isn't closed", "Trace from + : it must reach the resistor, the LED, and then back to –. A wire is missing.", "loop-open");
+      }
+      topo = { kind: "led", battery: !!battery, led: !!led, shorted, loopClosed, ledForward, resistorSeries, resistorAcross, ledAcrossNoR };
+      const hasFail = diags.some(d => d.severity === "fail");
+      correct = !hasFail && battery && resistor && led && loopClosed && ledForward && !shorted;
+    } else {
+      // ---- JFET dimmer topology checks ----
+      // Resistor in series + LED direction still apply to the supply side of the JFET; reuse helpers.
+      const resistorSeries = resistorInSeries(uf, battery, resistor, led);
+      const supplyTerm = ledSupplyTerminal(uf, battery, resistor, led);
+      const ledForward = supplyTerm === "ANODE";
+      const ledReversed = supplyTerm === "CATHODE";
+      const jr = jfetTopology(uf, battery, resistor, led, jfet, vsource);
+
+      if (battery && resistor && led && !shorted) {
+        if (resistorSeries) addDiagnostic(diags, "ok", "Resistor is in series with the LED", "It sits between the battery + and the LED.", "resistor-series-ok");
+        else addDiagnostic(diags, "fail", "Resistor isn't wired into the loop", "Wire battery + &rarr; resistor &rarr; LED &rarr; JFET drain.", "resistor-missing-path");
+      }
+      if (battery && led && !shorted) {
+        if (ledForward) addDiagnostic(diags, "ok", "LED is facing the right way", "Long leg (anode) toward the resistor / + side.", "led-forward");
+        else if (ledReversed) addDiagnostic(diags, "fail", "LED is in backwards", "Flip the LED: long leg (anode) faces +, flat side faces the JFET drain.", "led-reversed");
+        else addDiagnostic(diags, "fail", "LED isn't wired into the loop", "Wire LED anode toward the resistor/+ and cathode to the JFET drain.", "led-missing-path");
+      }
+      if (jfet && !shorted) {
+        if (jr.drainSourceSwapped && !jr.sourceAtNeg) addDiagnostic(diags, "fail", "JFET drain and source look swapped", "Source must go to battery –; drain should meet the LED's cathode. Rotate or rewire the JFET.", "jfet-ds-swap");
+        if (jr.sourceAtNeg) addDiagnostic(diags, "ok", "JFET source returns to –", "Current leaves the source and flows back to battery –.", "jfet-source-ok");
+        else if (!jr.drainSourceSwapped) addDiagnostic(diags, "fail", "JFET source isn't tied to –", "Wire the JFET source terminal to the battery's – rail.", "jfet-source-missing");
+        if (jr.drainAtMid) addDiagnostic(diags, "ok", "JFET drain meets the LED", "The drain takes current from the LED's cathode side.", "jfet-drain-ok");
+        else addDiagnostic(diags, "fail", "JFET drain isn't on the LED's cathode side", "Wire JFET drain to the LED's flat-side terminal (the side away from the resistor).", "jfet-drain-missing");
+        if (vsource) {
+          if (jr.gateDriven) addDiagnostic(diags, "ok", "Gate is driven by the V<sub>G</sub> source", "The slider's voltage now reaches the gate.", "jfet-gate-ok");
+          else addDiagnostic(diags, "fail", "Gate is floating", "Wire JFET gate to the gate-voltage source's + terminal so the slider can control it.", "jfet-gate-float");
+          if (jr.vsourceReturned) addDiagnostic(diags, "ok", "V<sub>G</sub> source returns to –", "Its negative terminal shares the – rail with the JFET source.", "vsource-return-ok");
+          else addDiagnostic(diags, "fail", "V<sub>G</sub> source isn't returned to –", "Wire the V<sub>G</sub> source's – terminal to the battery's – rail. Without a shared ground, V<sub>GS</sub> isn't well defined.", "vsource-return-missing");
+        }
+      }
+
+      topo = { kind: "jfet", battery: !!battery, led: !!led, shorted, ledForward, resistorSeries, jr, vsource: !!vsource };
+      const hasFail = diags.some(d => d.severity === "fail");
+      correct = !hasFail && battery && resistor && led && vsource && jr.jfetInLoop && jr.gateDriven && jr.vsourceReturned && ledForward && !shorted;
+    }
+
+    const sim = simState(topo, correct);
+    lastCheck = { uf, diags, nodes, correct, hasFail: diags.some(d => d.severity === "fail"), sim, topo };
+
+    // latch burnout (only meaningful in the LED-only topology — the JFET limits current in jfet mode)
+    if (simulationOn && sim.outcome === "burn" && !burned) {
+      burned = true; burnAnim = 0; lastCheck.sim = simState(topo, correct);
+      showToast("Poof — the LED burned out. Clear or reload to try again.");
+    }
+
+    if (!silent) {
+      renderDiagnostics(lastCheck);
+      updateStatus(lastCheck);
+      updateMeters(lastCheck);
+      render();
+    }
+    return lastCheck;
+  }
+
+  // Depletion-mode N-JFET model. V_GS in [V_P, 0] -> I_D in [0, I_DSS]; saturates outside.
+  const JFET_VP = -3.0;          // pinch-off voltage (V)
+  const JFET_IDSS_MA = 5.0;      // max drain current at V_GS=0 (mA) — qualitative, for display
+  function jfetDrainCurrentMa(vgs) {
+    if (vgs >= 0) return JFET_IDSS_MA;
+    if (vgs <= JFET_VP) return 0;
+    const k = 1 - vgs / JFET_VP;
+    return JFET_IDSS_MA * k * k;
+  }
+
+  // simState returns the visual/behavioural outcome plus any meter values.
+  function simState(topo, correct) {
+    if (!topo) return { outcome: "idle", lit: false, brightness: 0, current: "--", scope: "off", caption: "Add the parts, then wire and check the circuit." };
+    if (burned) return { outcome: "burn", lit: false, brightness: 0, current: "burned out", scope: "dead", caption: "The LED burned out and won't light again. Clear the board or reload to try a fresh one." };
+    if (!topo.battery || !topo.led) return { outcome: "idle", lit: false, brightness: 0, current: "--", scope: "off", caption: "Add the parts, then wire and check the circuit." };
+    if (topo.shorted) return { outcome: "short", lit: false, brightness: 0, current: "wasted in short", scope: "low", caption: "The battery is shorted; current rushes straight across and the LED stays dark." };
+
+    if (topo.kind === "jfet") {
+      if (!correct) {
+        return { outcome: "bad", lit: false, brightness: 0, current: "--", scope: "off", caption: "Fix the red items in the mistake finder to get the JFET dimmer working." };
+      }
+      // V_S = 0 because source is tied to –; V_GS = V_G − V_S = gateVoltage
+      const vgs = Math.max(JFET_VP, Math.min(0, gateVoltage));
+      const idMa = jfetDrainCurrentMa(vgs);
+      const brightness = idMa / JFET_IDSS_MA; // 0..1
+      const lit = brightness > 0.02;
+      let caption;
+      if (vgs >= -0.05) caption = "V\u2009G \u2248 0 V: the channel is fully open, LED at maximum brightness.";
+      else if (vgs <= JFET_VP + 0.05) caption = "V\u2009G near pinch-off: the channel is closed, no drain current, LED dark.";
+      else caption = "V\u2009G between 0 and V\u2009P: the channel is partly pinched, LED at intermediate brightness.";
+      return { outcome: "jfet-active", lit, brightness, current: idMa.toFixed(2) + " mA", scope: "jfet", caption, vgs, idMa };
+    }
+
+    // ---- LED-only original behaviour ----
+    if (correct) return { outcome: "lit", lit: true, brightness: 1, current: "safe", scope: "on", caption: "The resistor limits the current to a safe level. The LED is lit and happy." };
+    if (topo.ledAcrossNoR && topo.ledForward) return { outcome: "burn", lit: false, brightness: 0, current: "TOO HIGH", scope: "dead", caption: "Nothing limits the current — the LED draws far too much and burns out. This is why we use a resistor." };
+    if ((topo.loopClosed || topo.ledAcrossNoR) && !topo.ledForward) return { outcome: "reversed", lit: false, brightness: 0, current: "blocked by LED", scope: "off", caption: "The LED is backwards, so it blocks the current. Flip it." };
+    if (!topo.loopClosed) return { outcome: "open", lit: false, brightness: 0, current: "none", scope: "off", caption: "The loop is open — no complete path, so no current and no light." };
+    return { outcome: "bad", lit: false, brightness: 0, current: "--", scope: "off", caption: "Fix the red items in the mistake finder to get a working circuit." };
+  }
+
+  function brightnessBar(b) {
+    // five-step bar of filled/empty dots
+    const n = Math.max(0, Math.min(5, Math.round(b * 5)));
+    return "\u25CF".repeat(n) + "\u25CB".repeat(5 - n);
+  }
+
+  function updateMeters(check) {
+    const s = check.sim;
+    document.getElementById("meterSupply").textContent = (firstComp("battery") ? "3.0 V" : "--");
+    const ledEl = document.getElementById("meterLed");
+    if (s.outcome === "lit" || s.outcome === "jfet-active") {
+      ledEl.textContent = s.outcome === "jfet-active" ? (s.lit ? (s.brightness > 0.75 ? "ON" : "dim") : "off") : "ON";
+      ledEl.className = "value" + (s.lit ? " lit" : "");
+    } else {
+      ledEl.textContent = s.outcome === "burn" ? "burned" : "off";
+      ledEl.className = "value" + (s.outcome === "burn" ? " hot" : "");
+    }
+    const curEl = document.getElementById("meterCurrent");
+    curEl.textContent = s.current;
+    curEl.className = "value" + (s.current === "TOO HIGH" ? " hot" : "");
+    const brEl = document.getElementById("meterBright");
+    if (s.outcome === "burn") { brEl.textContent = "\u2014"; }
+    else if (s.outcome === "jfet-active") { brEl.textContent = brightnessBar(s.brightness); }
+    else if (s.lit) { brEl.textContent = "\u25CF\u25CF\u25CF\u25CF\u25CF"; }
+    else { brEl.textContent = "\u25CB\u25CB\u25CB\u25CB\u25CB"; }
+
+    // JFET-specific meters
+    const vgsEl = document.getElementById("meterVgs");
+    const idEl = document.getElementById("meterId");
+    if (s.outcome === "jfet-active") {
+      vgsEl.textContent = s.vgs.toFixed(2) + " V";
+      vgsEl.className = "value" + (s.vgs <= JFET_VP + 0.05 ? " pinched" : "");
+      idEl.textContent = s.idMa.toFixed(2) + " mA";
+      idEl.className = "value" + (s.idMa > 0.01 ? " lit" : " pinched");
+    } else if (firstComp("jfet")) {
+      // JFET on board but wiring incomplete — show the slider value so students see it responds
+      vgsEl.textContent = (typeof gateVoltage === "number" ? gateVoltage.toFixed(2) : "--") + " V";
+      vgsEl.className = "value";
+      idEl.textContent = "--";
+      idEl.className = "value";
+    } else {
+      vgsEl.textContent = "--"; vgsEl.className = "value";
+      idEl.textContent = "--"; idEl.className = "value";
+    }
+
+    // Show the gate control panel only when a JFET is on the board
+    const gateCtl = document.getElementById("gateControl");
+    if (gateCtl) gateCtl.hidden = !firstComp("jfet");
+
+    document.getElementById("scopeCaption").textContent = s.caption;
+  }
+
+  function updateStatus(check) {
+    statusPill.classList.remove("good", "warn", "bad");
+    if (check.correct && !burned) {
+      statusPill.textContent = "Circuit passes";
+      statusPill.classList.add("good");
+      callout.textContent = "Nice. Start the simulation to watch the current flow around the loop and the LED light up.";
+    } else if (check.hasFail || burned) {
+      const failCount = check.diags.filter(d => d.severity === "fail").length;
+      statusPill.textContent = burned ? "LED burned out" : failCount + " issue" + (failCount === 1 ? "" : "s") + " found";
+      statusPill.classList.add("bad");
+      callout.textContent = burned ? "Clear the board or reload a starter layout to get a fresh LED." : "Use the mistake finder on the right. Red items usually point to one missing or misplaced wire.";
+    } else {
+      statusPill.textContent = "Works with warnings";
+      statusPill.classList.add("warn");
+      callout.textContent = "The main loop looks usable, but warnings show details to improve.";
+    }
+  }
+
+  function renderDiagnostics(check) {
+    diagnosticsEl.innerHTML = "";
+    const order = { fail: 0, warn: 1, ok: 2 };
+    const ordered = [...check.diags].sort((a, b) => order[a.severity] - order[b.severity]);
+    if (!ordered.length) { diagnosticsEl.textContent = "Add components to begin."; }
+    ordered.forEach(d => {
+      const div = document.createElement("div");
+      div.className = "diag " + (d.severity === "ok" ? "ok" : d.severity === "warn" ? "warn" : "fail");
+      const icon = d.severity === "ok" ? "OK: " : d.severity === "warn" ? "Check: " : "Fix: ";
+      div.innerHTML = "<strong>" + escapeHtml(icon + d.title) + "</strong>" + (d.fix ? "<div class='fix'>" + d.fix + "</div>" : "");
+      diagnosticsEl.appendChild(div);
+    });
+    renderNodeTable(check);
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>'"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;" }[ch])); }
+
+  function getNodeMembers(uf) {
+    const members = new Map();
+    components.forEach(c => terminalDefs(c).forEach(t => {
+      const root = uf.find(termKey({ compId: c.id, term: t.name }));
+      if (!members.has(root)) members.set(root, []);
+      members.get(root).push((c.label || TYPE_LABELS[c.type]) + "." + t.name);
+    }));
+    return members;
+  }
+
+  function classifyNode(root, check) {
+    if (!check || !check.nodes) return "other";
+    const uf = check.uf, n = check.nodes;
+    if (n.pos && n.neg && sameNode(uf, root, n.pos) && sameNode(uf, root, n.neg)) return "short";
+    if (n.pos && sameNode(uf, root, n.pos)) return "supply";
+    if (n.neg && sameNode(uf, root, n.neg)) return "return";
+    if (n.anode && sameNode(uf, root, n.anode)) return "mid";
+    return "other";
+  }
+  function nodeLabel(kind) {
+    return { supply: "Supply (+) / resistor top", return: "Return (–) / LED flat side", mid: "Resistor &rarr; LED junction", short: "Shorted node", other: "Unassigned / floating" }[kind] || "Other";
+  }
+  function renderNodeTable(check) {
+    nodeTableBody.innerHTML = "";
+    if (!check) return;
+    const members = getNodeMembers(check.uf);
+    const rows = [...members.entries()].map(([root, list]) => ({ kind: classifyNode(root, check), list }));
+    const rank = { short: 0, supply: 1, mid: 2, return: 3, other: 4 };
+    rows.sort((a, b) => rank[a.kind] - rank[b.kind]);
+    rows.forEach(row => {
+      const tr = document.createElement("tr");
+      const td1 = document.createElement("td");
+      const td2 = document.createElement("td");
+      td1.innerHTML = "<span class='node-dot dot-" + row.kind + "'></span>" + nodeLabel(row.kind);
+      td2.textContent = row.list.join(", ");
+      tr.appendChild(td1); tr.appendChild(td2);
+      nodeTableBody.appendChild(tr);
+    });
+  }
+
+  function loadLayout(wired, layout) {
+    layout = layout || GOOD_LAYOUT;
+    components = layout.components.map(item => ({
+      id: uid("c"), layoutId: item.id, type: item.type, x: item.x, y: item.y, rot: item.rot, label: TYPE_LABELS[item.type]
+    }));
+    wires = [];
+    if (wired) layout.wires.forEach(pair => addWireRefs(parseRef(pair[0]), parseRef(pair[1]), true));
+    selectedTerminal = selectedComponentId = selectedWireId = null;
+    hintIndex = 0; burned = false;
+    render(); checkCircuit(false);
+  }
+
+  function loadJfetLayout() {
+    loadLayout(true, JFET_LAYOUT);
+    // sync the slider UI to the current gateVoltage so the panel reads correctly
+    const slider = document.getElementById("vgSlider");
+    if (slider) slider.value = String(gateVoltage);
+    const readout = document.getElementById("vgReadout");
+    if (readout) readout.textContent = gateVoltage.toFixed(2) + " V";
+    showToast("JFET dimmer loaded. Drag the gate voltage slider to dim the LED.");
+  }
+
+  function loadFault(kind) {
+    const jfetKinds = ["jfetDrainSwap", "jfetGateFloat", "jfetSourceNotGround"];
+    if (jfetKinds.indexOf(kind) >= 0) {
+      loadLayout(true, JFET_LAYOUT);
+    } else {
+      loadLayout(true);
+    }
+    const ref = s => parseRef(s);
+    function removeWireWith(a, b) {
+      const ra = ref(a), rb = ref(b);
+      if (!ra || !rb) return;
+      wires = wires.filter(w => !((sameRef(w.a, ra) && sameRef(w.b, rb)) || (sameRef(w.a, rb) && sameRef(w.b, ra))));
+    }
+    if (kind === "noResistor") {
+      wires = wires.filter(w => findComponent(w.a.compId)?.layoutId !== "r" && findComponent(w.b.compId)?.layoutId !== "r");
+      addWireRefs(ref("battery:POS"), ref("led:ANODE"), true);
+      showToast("Loaded fault: the resistor is bypassed — the LED is straight across the battery.");
+    } else if (kind === "ledReversed") {
+      removeWireWith("r:B", "led:ANODE");
+      removeWireWith("led:CATHODE", "battery:NEG");
+      addWireRefs(ref("r:B"), ref("led:CATHODE"), true);
+      addWireRefs(ref("led:ANODE"), ref("battery:NEG"), true);
+      showToast("Loaded fault: the LED is wired in backwards.");
+    } else if (kind === "openLoop") {
+      removeWireWith("led:CATHODE", "battery:NEG");
+      showToast("Loaded fault: the loop is broken — the return wire is missing.");
+    } else if (kind === "shortCircuit") {
+      addWireRefs(ref("battery:POS"), ref("battery:NEG"), true);
+      showToast("Loaded fault: a wire shorts + straight to –.");
+    } else if (kind === "resistorAcross") {
+      removeWireWith("r:B", "led:ANODE");
+      addWireRefs(ref("r:B"), ref("battery:NEG"), true);
+      addWireRefs(ref("battery:POS"), ref("led:ANODE"), true);
+      showToast("Loaded fault: the resistor sits across the battery instead of in series with the LED.");
+    } else if (kind === "jfetDrainSwap") {
+      removeWireWith("led:CATHODE", "jfet:D");
+      removeWireWith("jfet:S", "battery:NEG");
+      addWireRefs(ref("led:CATHODE"), ref("jfet:S"), true);
+      addWireRefs(ref("jfet:D"), ref("battery:NEG"), true);
+      showToast("Loaded fault: drain and source are swapped on the JFET.");
+    } else if (kind === "jfetGateFloat") {
+      removeWireWith("jfet:G", "vsource:POS");
+      showToast("Loaded fault: the JFET gate isn't connected to the V_G source.");
+    } else if (kind === "jfetSourceNotGround") {
+      removeWireWith("jfet:S", "battery:NEG");
+      showToast("Loaded fault: the JFET source isn't tied to the – rail.");
+    }
+    const slider = document.getElementById("vgSlider");
+    if (slider) slider.value = String(gateVoltage);
+    render(); checkCircuit(false);
+  }
+
+  function addComponent(type) {
+    const count = components.length;
+    const x = 80 + (count % 3) * 170;
+    const y = 90 + Math.floor(count / 3) * 150;
+    const defaultRot = (type === "resistor" || type === "jfet") ? "h" : "v";
+    components.push({ id: uid("c"), layoutId: null, type, x, y, rot: defaultRot, label: TYPE_LABELS[type] });
+    selectedComponentId = components[components.length - 1].id;
+    selectedWireId = null;
+    render(); checkCircuit(false);
+  }
+
+  function sameRef(a, b) { return a && b && a.compId === b.compId && a.term === b.term; }
+
+  function addWireRefs(a, b, skipRender) {
+    if (!a || !b) return;
+    if (a.compId === b.compId && a.term === b.term) return;
+    const exists = wires.some(w => (sameRef(w.a, a) && sameRef(w.b, b)) || (sameRef(w.a, b) && sameRef(w.b, a)));
+    if (!exists) wires.push({ id: uid("w"), a: { ...a }, b: { ...b } });
+    if (!skipRender) { render(); checkCircuit(false); }
+  }
+
+  function deleteSelected() {
+    if (selectedWireId) { wires = wires.filter(w => w.id !== selectedWireId); selectedWireId = null; render(); checkCircuit(false); return; }
+    if (selectedComponentId) {
+      components = components.filter(c => c.id !== selectedComponentId);
+      wires = wires.filter(w => w.a.compId !== selectedComponentId && w.b.compId !== selectedComponentId);
+      selectedComponentId = null; selectedTerminal = null;
+      render(); checkCircuit(false);
+    }
+  }
+  function rotateSelected() {
+    const c = findComponent(selectedComponentId);
+    if (!c) { showToast("Select a component to rotate."); return; }
+    c.rot = c.rot === "h" ? "v" : "h";
+    render(); checkCircuit(false);
+  }
+  function undoLastWire() { wires.pop(); selectedWireId = null; render(); checkCircuit(false); }
+
+  function pathFromPoints(points) { return "M " + points.map(p => p.x + " " + p.y).join(" L "); }
+
+  // outward-routed wire: leaves each terminal along its (dx,dy) lead before turning,
+  // so no segment runs under the device it connects to.
+  function terminalInfo(ref) {
+    const c = findComponent(ref.compId);
+    if (!c) return null;
+    const t = terminalDefs(c).find(item => item.name === ref.term);
+    if (!t) return null;
+    return { pos: { x: c.x + t.x, y: c.y + t.y }, dir: { x: t.dx, y: t.dy } };
+  }
+  // eliminate 180-degree (U-turn) reversals: every turn becomes a clean 90 degrees.
+  const sgnDir = n => (n > 0.001 ? 1 : (n < -0.001 ? -1 : 0));
+  function dedupPts(p) {
+    const o = [];
+    for (const pt of p) if (!o.length || Math.hypot(pt.x - o[o.length - 1].x, pt.y - o[o.length - 1].y) > 0.5) o.push(pt);
+    return o;
+  }
+  function fix180(points) {
+    points = dedupPts(points);
+    for (let iter = 0; iter < 16; iter++) {
+      points = dedupPts(points);
+      let changed = false;
+      for (let i = 1; i < points.length - 1; i++) {
+        const ux = sgnDir(points[i].x - points[i - 1].x), uy = sgnDir(points[i].y - points[i - 1].y);
+        const wx = sgnDir(points[i + 1].x - points[i].x), wy = sgnDir(points[i + 1].y - points[i].y);
+        if ((ux || uy) && (wx || wy) && ux === -wx && uy === -wy) {
+          const perp = ux !== 0 ? { x: 0, y: 1 } : { x: 1, y: 0 };
+          const J = 26;
+          const j1 = { x: points[i].x + perp.x * J, y: points[i].y + perp.y * J };
+          const j2 = { x: points[i + 1].x + perp.x * J, y: points[i + 1].y + perp.y * J };
+          points.splice(i + 1, 0, j1, j2);
+          changed = true; break;
+        }
+      }
+      if (!changed) break;
+    }
+    return dedupPts(points);
+  }
+
+  // ---- obstacle-aware routing: wires go AROUND component bodies, never under them ----
+  const OBST_MARGIN = 14;
+  function obstacleBoxes() {
+    return components.map(c => {
+      const d = componentDims(c);
+      return { x0: c.x - OBST_MARGIN, y0: c.y - OBST_MARGIN, x1: c.x + d.w + OBST_MARGIN, y1: c.y + d.h + OBST_MARGIN };
+    });
+  }
+  function segHitsBox(x1, y1, x2, y2, b) {
+    if (Math.abs(y1 - y2) < 0.5) { const y = y1; if (y <= b.y0 || y >= b.y1) return false; const xa = Math.min(x1, x2), xb = Math.max(x1, x2); return xa < b.x1 && xb > b.x0; }
+    const x = x1; if (x <= b.x0 || x >= b.x1) return false; const ya = Math.min(y1, y2), yb = Math.max(y1, y2); return ya < b.y1 && yb > b.y0;
+  }
+  function ptInBox(x, y, b) { return x > b.x0 && x < b.x1 && y > b.y0 && y < b.y1; }
+  function uniqRound(a) { return [...new Set(a.map(v => Math.round(v)))].sort((p, q) => p - q); }
+
+  // route around obstacles on the grid formed by component edges + terminal coords (Hanan grid)
+  function routeAround(A, B) {
+    const bx = obstacleBoxes();
+    const xs = uniqRound([A.pos.x, B.pos.x].concat(bx.flatMap(b => [b.x0, b.x1])));
+    const ys = uniqRound([A.pos.y, B.pos.y].concat(bx.flatMap(b => [b.y0, b.y1])));
+    const iA = xs.indexOf(Math.round(A.pos.x)), jA = ys.indexOf(Math.round(A.pos.y));
+    const iB = xs.indexOf(Math.round(B.pos.x)), jB = ys.indexOf(Math.round(B.pos.y));
+    if (iA < 0 || jA < 0 || iB < 0 || jB < 0) return null;
+    const blockedNode = (i, j) => bx.some(b => ptInBox(xs[i], ys[j], b));
+    if (blockedNode(iB, jB)) return null;
+    const edgeOK = (i, j, ni, nj) => !bx.some(b => segHitsBox(xs[i], ys[j], xs[ni], ys[nj], b));
+    const key = (i, j, dx, dy) => i + "," + j + "," + dx + "," + dy;
+    const H = (i, j) => Math.abs(xs[i] - xs[iB]) + Math.abs(ys[j] - ys[jB]);
+    const moves = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const open = [{ i: iA, j: jA, dx: A.dir.x, dy: A.dir.y, g: 0, par: null }];
+    const best = new Map(); best.set(key(iA, jA, A.dir.x, A.dir.y), 0);
+    let goal = null, guard = 0;
+    while (open.length && guard++ < 20000) {
+      let bi = 0; for (let k = 1; k < open.length; k++) if ((open[k].g + H(open[k].i, open[k].j)) < (open[bi].g + H(open[bi].i, open[bi].j))) bi = k;
+      const cur = open.splice(bi, 1)[0];
+      if (cur.i === iB && cur.j === jB) { goal = cur; break; }
+      for (const [mx, my] of moves) {
+        if (mx === -cur.dx && my === -cur.dy) continue;            // forbid 180
+        let ni = cur.i, nj = cur.j;
+        if (mx) ni = cur.i + (mx > 0 ? 1 : -1); else nj = cur.j + (my > 0 ? 1 : -1);
+        if (ni < 0 || nj < 0 || ni >= xs.length || nj >= ys.length) continue;
+        if (blockedNode(ni, nj) && !(ni === iB && nj === jB)) continue;
+        if (!edgeOK(cur.i, cur.j, ni, nj)) continue;
+        const seglen = Math.abs(xs[ni] - xs[cur.i]) + Math.abs(ys[nj] - ys[cur.j]);
+        const turn = (mx !== cur.dx || my !== cur.dy) ? 60 : 0;
+        const ng = cur.g + seglen + turn;
+        const k = key(ni, nj, mx, my);
+        if (!best.has(k) || ng < best.get(k)) { best.set(k, ng); open.push({ i: ni, j: nj, dx: mx, dy: my, g: ng, par: cur }); }
+      }
+    }
+    if (!goal) return null;
+    const raw = []; for (let n = goal; n; n = n.par) raw.unshift({ x: xs[n.i], y: ys[n.j] });
+    const out = [raw[0]];
+    for (let i = 1; i < raw.length - 1; i++) {
+      const a = out[out.length - 1], b = raw[i], c = raw[i + 1];
+      if (!((a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y))) out.push(b);
+    }
+    out.push(raw[raw.length - 1]);
+    return out;
+  }
+
+  function routeWire(a, b) {
+    const A = terminalInfo(a), B = terminalInfo(b);
+    if (!A || !B) return [getTermPos(a), getTermPos(b)];
+    const around = routeAround(A, B);
+    if (around && around.length >= 2) return around;
+    // fallback (overlapping parts / no clear channel): lead route, U-turns removed
+    const L = 18;
+    const la = { x: A.pos.x + A.dir.x * L, y: A.pos.y + A.dir.y * L };
+    const lb = { x: B.pos.x + B.dir.x * L, y: B.pos.y + B.dir.y * L };
+    const aH = A.dir.x !== 0, bH = B.dir.x !== 0;
+    let mid;
+    if (aH && bH) { const xm = (la.x + lb.x) / 2; mid = [{ x: xm, y: la.y }, { x: xm, y: lb.y }]; }
+    else if (!aH && !bH) { const ym = (la.y + lb.y) / 2; mid = [{ x: la.x, y: ym }, { x: lb.x, y: ym }]; }
+    else if (aH && !bH) { mid = [{ x: lb.x, y: la.y }]; }
+    else { mid = [{ x: la.x, y: lb.y }]; }
+    return fix180([A.pos, la].concat(mid, [lb, B.pos]));
+  }
+
+  // ranks define current direction order around the loop for the live animation
+  function terminalRank(ref, check) {
+    if (!check || !check.correct || burned) return null;
+    const c = findComponent(ref.compId);
+    if (!c) return null;
+    if (c.type === "battery" && ref.term === "POS") return 0;
+    if (c.type === "resistor" && ref.term === "A") return 1;
+    if (c.type === "resistor" && ref.term === "B") return 2;
+    if (c.type === "led" && ref.term === "ANODE") return 3;
+    if (c.type === "led" && ref.term === "CATHODE") return 4;
+    if (c.type === "battery" && ref.term === "NEG") return 5;
+    return null;
+  }
+
+  function drawGrid() {
+    const g = createSvg("g", { class: "grid" }, svg);
+    for (let x = 0; x <= 1100; x += 20) createSvg("line", { x1: x, y1: 0, x2: x, y2: 720, class: x % 100 === 0 ? "grid-major" : "grid-line" }, g);
+    for (let y = 0; y <= 720; y += 20) createSvg("line", { x1: 0, y1: y, x2: 1100, y2: y, class: y % 100 === 0 ? "grid-major" : "grid-line" }, g);
+  }
+
+  function drawTarget() {
+    if (!showTarget) return;
+    const g = createSvg("g", { class: "ghost" }, svg);
+    createSvg("text", { x: 80, y: 60, "font-size": 16, "font-weight": 800 }, g).textContent = "Target: one simple loop";
+    // rectangular loop: battery left, resistor top, LED right
+    createSvg("path", { d: "M 168 234 L 168 145 L 286 145", class: "wire", stroke: "#0f172a", "stroke-width": 7 }, g);
+    createSvg("path", { d: "M 464 145 L 646 145 L 646 234", class: "wire", stroke: "#0f172a", "stroke-width": 7 }, g);
+    createSvg("path", { d: "M 646 416 L 646 470 L 168 470 L 168 406", class: "wire", stroke: "#0f172a", "stroke-width": 7 }, g);
+    // battery (left)
+    createSvg("rect", { x: 120, y: 250, width: 96, height: 140, rx: 14, class: "body" }, g);
+    createSvg("text", { x: 138, y: 326 }, g).textContent = "Batt";
+    createSvg("text", { x: 176, y: 232, "font-size": 14 }, g).textContent = "+";
+    createSvg("text", { x: 176, y: 416, "font-size": 14 }, g).textContent = "–";
+    // resistor (top)
+    createSvg("rect", { x: 300, y: 110, width: 150, height: 70, rx: 12, class: "body" }, g);
+    createSvg("text", { x: 332, y: 150 }, g).textContent = "Resistor";
+    // led (right)
+    createSvg("rect", { x: 600, y: 250, width: 92, height: 150, rx: 14, class: "body" }, g);
+    createSvg("text", { x: 622, y: 330 }, g).textContent = "LED";
+  }
+
+  function render() {
+    svg.innerHTML = "";
+    const defs = createSvg("defs", {}, svg);
+    const marker = createSvg("marker", { id: "arrow", markerWidth: 10, markerHeight: 10, refX: 5, refY: 3, orient: "auto", markerUnits: "strokeWidth" }, defs);
+    createSvg("path", { d: "M 0 0 L 6 3 L 0 6 z", fill: "#f97316" }, marker);
+    const glow = createSvg("radialGradient", { id: "ledglow", cx: "50%", cy: "50%", r: "50%" }, defs);
+    createSvg("stop", { offset: "0%", "stop-color": "#fff7cc" }, glow);
+    createSvg("stop", { offset: "45%", "stop-color": "#fde047" }, glow);
+    createSvg("stop", { offset: "100%", "stop-color": "#fde047", "stop-opacity": "0" }, glow);
+
+    drawGrid();
+    drawTarget();
+    const check = lastCheck || checkCircuit(true);
+    wires.forEach(w => renderWire(w, check));
+    components.forEach(c => renderComponent(c, check));
+    wires.forEach(w => renderWireEndpointOverlay(w, check));
+  }
+
+  function wireVisualClass(w, check, baseClass) {
+    let cls = baseClass + (w.id === selectedWireId ? " selected" : "");
+    if (simulationOn && check && check.correct && !burned) {
+      const ra = terminalRank(w.a, check), rb = terminalRank(w.b, check);
+      if (ra !== null && rb !== null && ra !== rb) cls += " live";
+    }
+    return cls;
+  }
+
+  function renderWire(w, check) {
+    const d = pathFromPoints(routeWire(w.a, w.b));
+    const hit = createSvg("path", { d, class: "wire-hit" }, svg);
+    const sel = () => { selectedWireId = w.id; selectedComponentId = null; selectedTerminal = null; render(); };
+    hit.addEventListener("pointerdown", e => { e.stopPropagation(); sel(); });
+    const cls = wireVisualClass(w, check, "wire");
+    const path = createSvg("path", { d, class: cls, "marker-mid": cls.includes("live") ? "url(#arrow)" : null }, svg);
+    path.addEventListener("pointerdown", e => { e.stopPropagation(); sel(); });
+  }
+  function endpointStub(points, atStart) {
+    const a = points[atStart ? 0 : points.length - 1];
+    const b = points[atStart ? 1 : points.length - 2];
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const s = Math.min(10, len * 0.25), e = Math.min(34, len);
+    return "M " + (a.x + ux * s) + " " + (a.y + uy * s) + " L " + (a.x + ux * e) + " " + (a.y + uy * e);
+  }
+  function renderWireEndpointOverlay(w, check) {
+    const points = routeWire(w.a, w.b);
+    const cls = wireVisualClass(w, check, "wire-end-stub");
+    createSvg("path", { d: endpointStub(points, true), class: cls }, svg);
+    createSvg("path", { d: endpointStub(points, false), class: cls }, svg);
+  }
+
+  function renderComponent(c, check) {
+    const g = createSvg("g", { class: "component" + (c.id === selectedComponentId ? " selected" : ""), transform: "translate(" + c.x + " " + c.y + ")", "data-id": c.id }, svg);
+    g.addEventListener("pointerdown", e => onComponentPointerDown(e, c));
+    if (c.type === "resistor") drawResistor(g, c, check);
+    else if (c.type === "battery") drawBattery(g, c, check);
+    else if (c.type === "led") drawLed(g, c, check);
+    else if (c.type === "jfet") drawJfet(g, c, check);
+    else if (c.type === "vsource") drawVsource(g, c, check);
+    drawTerminals(g, c, check);
+  }
+
+  function drawResistor(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 16, class: "body" }, g);
+    createSvg("text", { x: d.w / 2, y: c.rot === "h" ? 22 : 24, "text-anchor": "middle" }, g).textContent = "Resistor";
+    const path = c.rot === "h"
+      ? "M 14 35 L 36 35 L 43 22 L 55 48 L 67 22 L 79 48 L 91 22 L 103 48 L 110 35 L 136 35"
+      : "M 40 15 L 40 36 L 27 43 L 53 55 L 27 67 L 53 79 L 27 91 L 53 103 L 40 110 L 40 135";
+    createSvg("path", { d: path, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linejoin": "round" }, g);
+    // leads out to the proud terminals
+    const leads = c.rot === "h"
+      ? ["M -16 35 L 14 35", "M 136 35 L 166 35"]
+      : ["M 40 -16 L 40 15", "M 40 135 L 40 166"];
+    leads.forEach(dd => createSvg("path", { d: dd, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }, g));
+    if (simulationOn && check && check.correct && !burned) {
+      const flowing = check.sim && (check.sim.outcome === "lit" || (check.sim.outcome === "jfet-active" && check.sim.brightness > 0.02));
+      if (flowing) createSvg("path", { d: c.rot === "h" ? "M -16 35 L 166 35" : "M 40 -16 L 40 166", class: "live-inside" }, g);
+    }
+    createSvg("text", { x: d.w / 2, y: d.h - 12, "text-anchor": "middle", class: "subtext" }, g).textContent = "limits current";
+  }
+
+  function drawBattery(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 16, class: "body" }, g);
+    createSvg("text", { x: d.w / 2, y: c.rot === "v" ? 22 : 18, "text-anchor": "middle" }, g).textContent = "3V Battery";
+    if (c.rot === "v") {
+      const cx = d.w / 2, cy = d.h / 2;
+      createSvg("line", { x1: cx - 22, y1: cy - 16, x2: cx + 22, y2: cy - 16, stroke: "#0f172a", "stroke-width": 6 }, g);
+      createSvg("line", { x1: cx - 12, y1: cy - 4, x2: cx + 12, y2: cy - 4, stroke: "#0f172a", "stroke-width": 3 }, g);
+      createSvg("line", { x1: cx - 22, y1: cy + 8, x2: cx + 22, y2: cy + 8, stroke: "#0f172a", "stroke-width": 6 }, g);
+      createSvg("line", { x1: cx - 12, y1: cy + 20, x2: cx + 12, y2: cy + 20, stroke: "#0f172a", "stroke-width": 3 }, g);
+      createSvg("path", { d: `M ${cx} -16 L ${cx} ${cy - 16}`, stroke: "#0f172a", "stroke-width": 3, "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx} ${cy + 20} L ${cx} ${d.h + 16}`, stroke: "#0f172a", "stroke-width": 3, "stroke-linecap": "round" }, g);
+    } else {
+      const cx = d.w / 2, cy = d.h / 2;
+      createSvg("line", { x1: cx - 16, y1: cy - 22, x2: cx - 16, y2: cy + 22, stroke: "#0f172a", "stroke-width": 6 }, g);
+      createSvg("line", { x1: cx - 4, y1: cy - 12, x2: cx - 4, y2: cy + 12, stroke: "#0f172a", "stroke-width": 3 }, g);
+      createSvg("line", { x1: cx + 8, y1: cy - 22, x2: cx + 8, y2: cy + 22, stroke: "#0f172a", "stroke-width": 6 }, g);
+      createSvg("line", { x1: cx + 20, y1: cy - 12, x2: cx + 20, y2: cy + 12, stroke: "#0f172a", "stroke-width": 3 }, g);
+      createSvg("path", { d: `M ${cx + 20} ${cy} L ${d.w + 16} ${cy}`, stroke: "#0f172a", "stroke-width": 3, "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx - 16} ${cy} L -16 ${cy}`, stroke: "#0f172a", "stroke-width": 3, "stroke-linecap": "round" }, g);
+    }
+  }
+
+  function drawLed(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 16, class: "body" }, g);
+    const sim = check && check.sim;
+    // brightness: 0..1. The original "lit" was binary (correct + on); now it can be partial.
+    let brightness = 0;
+    if (simulationOn && check && !burned) {
+      if (check.correct && sim && sim.outcome === "lit") brightness = 1;
+      else if (sim && sim.outcome === "jfet-active") brightness = sim.brightness;
+    }
+    const lit = brightness > 0.02;
+    const cx = d.w / 2, cy = d.h / 2;
+    if (lit) createSvg("circle", { cx, cy, r: 40, fill: "url(#ledglow)", opacity: brightness }, g);
+    // triangle fill blends from idle yellow to lit orange by brightness
+    const triFill = burned ? "#3a322a" : (lit
+      ? (brightness > 0.5 ? "#f59e0b" : "#fbbf24")
+      : "#fde68a");
+    const stroke = burned ? "#111" : "#92400e";
+    if (c.rot === "h") {
+      createSvg("path", { d: `M ${cx - 16} ${cy - 16} L ${cx - 16} ${cy + 16} L ${cx + 14} ${cy} Z`, fill: triFill, stroke, "stroke-width": 2, "stroke-linejoin": "round" }, g);
+      createSvg("line", { x1: cx + 14, y1: cy - 16, x2: cx + 14, y2: cy + 16, stroke, "stroke-width": 4, "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M -16 ${cy} L ${cx - 16} ${cy}`, stroke, "stroke-width": 3, "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx + 14} ${cy} L ${d.w + 16} ${cy}`, stroke, "stroke-width": 3, "stroke-linecap": "round" }, g);
+    } else {
+      createSvg("path", { d: `M ${cx - 16} ${cy - 16} L ${cx + 16} ${cy - 16} L ${cx} ${cy + 14} Z`, fill: triFill, stroke, "stroke-width": 2, "stroke-linejoin": "round" }, g);
+      createSvg("line", { x1: cx - 16, y1: cy + 14, x2: cx + 16, y2: cy + 14, stroke, "stroke-width": 4, "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx} -16 L ${cx} ${cy - 16}`, stroke, "stroke-width": 3, "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx} ${cy + 14} L ${cx} ${d.h + 16}`, stroke, "stroke-width": 3, "stroke-linecap": "round" }, g);
+    }
+    if (lit && brightness > 0.5) {
+      createSvg("path", { d: `M ${cx + 18} ${cy - 18} l 12 -9 m -3 0 l 3 0 l 0 3`, stroke: "#d97706", "stroke-width": 2, fill: "none", "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx + 24} ${cy - 6} l 13 -7 m -3 -0.5 l 3 0.5 l -0.5 3`, stroke: "#d97706", "stroke-width": 2, fill: "none", "stroke-linecap": "round" }, g);
+    }
+    if (burned) createSvg("path", { d: `M ${cx - 8} ${cy - 10} l 5 8 l -4 4 l 7 6`, stroke: "#000", "stroke-width": 2, fill: "none", "stroke-linecap": "round" }, g);
+    createSvg("text", { x: d.w / 2, y: 18, "text-anchor": "middle" }, g).textContent = burned ? "LED (dead)" : "LED";
+    createSvg("text", { x: d.w / 2, y: d.h - 12, "text-anchor": "middle", class: "subtext" }, g).textContent = "long leg = +";
+  }
+
+  // N-channel JFET (2N5457-style). Circle envelope, vertical channel, gate arrow points INWARD.
+  // Horizontal orientation: drain on the left, source on the right, gate at the bottom.
+  // Vertical orientation: drain on top, source on bottom, gate on the left.
+  function drawJfet(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 16, class: "body" }, g);
+    const cx = d.w / 2, cy = d.h / 2;
+    const showCurrent = simulationOn && check && check.sim && check.sim.outcome === "jfet-active" && check.sim.brightness > 0.02;
+    // envelope circle
+    createSvg("circle", { cx, cy, r: 30, class: "jfet-body-stroke", fill: "#f8fafc" }, g);
+    if (c.rot === "h") {
+      // channel is vertical inside the circle; D and S leads enter horizontally from the sides
+      // and meet the top/bottom of the channel via short stubs.
+      createSvg("line", { x1: cx, y1: cy - 22, x2: cx, y2: cy + 22, class: "jfet-channel" }, g);
+      // drain stub: from left lead end to top of channel
+      createSvg("path", { d: `M -16 ${cy} L ${cx - 30} ${cy} L ${cx - 16} ${cy} L ${cx - 16} ${cy - 22} L ${cx} ${cy - 22}`, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
+      // source stub: from right lead end to bottom of channel
+      createSvg("path", { d: `M ${d.w + 16} ${cy} L ${cx + 30} ${cy} L ${cx + 16} ${cy} L ${cx + 16} ${cy + 22} L ${cx} ${cy + 22}`, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
+      // gate from bottom up to channel; N-channel arrow points INWARD (toward channel)
+      createSvg("path", { d: `M ${cx} ${d.h + 16} L ${cx} ${cy + 30} L ${cx} ${cy}`, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }, g);
+      // arrowhead on gate line pointing inward (toward channel center)
+      createSvg("path", { d: `M ${cx - 6} ${cy + 8} L ${cx} ${cy} L ${cx + 6} ${cy + 8} Z`, class: "jfet-arrow" }, g);
+      if (showCurrent) {
+        // animated current along the D->S channel inside the device
+        createSvg("path", { d: `M -16 ${cy} L ${cx - 16} ${cy} L ${cx - 16} ${cy - 22} L ${cx + 16} ${cy - 22} M ${cx} ${cy - 22} L ${cx} ${cy + 22} M ${cx - 16} ${cy + 22} L ${cx + 16} ${cy + 22} L ${cx + 16} ${cy} L ${d.w + 16} ${cy}`, class: "live-inside" }, g);
+      }
+    } else {
+      // vertical: drain top, source bottom, gate from the LEFT
+      createSvg("line", { x1: cx - 22, y1: cy, x2: cx + 22, y2: cy, class: "jfet-channel" }, g);
+      createSvg("path", { d: `M ${cx} -16 L ${cx} ${cy - 30} L ${cx} ${cy - 16} L ${cx - 22} ${cy - 16} L ${cx - 22} ${cy}`, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
+      createSvg("path", { d: `M ${cx} ${d.h + 16} L ${cx} ${cy + 30} L ${cx} ${cy + 16} L ${cx - 22} ${cy + 16} L ${cx - 22} ${cy}`, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
+      createSvg("path", { d: `M -16 ${cy} L ${cx - 30} ${cy} L ${cx} ${cy}`, stroke: "#0f172a", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx - 8} ${cy - 6} L ${cx} ${cy} L ${cx - 8} ${cy + 6} Z`, class: "jfet-arrow" }, g);
+      if (showCurrent) {
+        createSvg("path", { d: `M ${cx} -16 L ${cx} ${cy - 16} L ${cx - 22} ${cy - 16} M ${cx - 22} ${cy} L ${cx + 22} ${cy} M ${cx - 22} ${cy + 16} L ${cx} ${cy + 16} L ${cx} ${d.h + 16}`, class: "live-inside" }, g);
+      }
+    }
+    createSvg("text", { x: d.w / 2, y: 16, "text-anchor": "middle" }, g).textContent = "N-JFET";
+    createSvg("text", { x: d.w / 2, y: d.h - 8, "text-anchor": "middle", class: "subtext" }, g).textContent = "gate controls current";
+    // small D/G/S hint letters near the body
+    if (c.rot === "h") {
+      createSvg("text", { x: cx - 36, y: cy + 4, "text-anchor": "end", class: "subtext" }, g).textContent = "D";
+      createSvg("text", { x: cx + 36, y: cy + 4, "text-anchor": "start", class: "subtext" }, g).textContent = "S";
+      createSvg("text", { x: cx + 14, y: cy + 38, "text-anchor": "start", class: "subtext" }, g).textContent = "G";
+    } else {
+      createSvg("text", { x: cx + 4, y: cy - 36, class: "subtext" }, g).textContent = "D";
+      createSvg("text", { x: cx + 4, y: cy + 44, class: "subtext" }, g).textContent = "S";
+      createSvg("text", { x: cx - 36, y: cy - 8, "text-anchor": "end", class: "subtext" }, g).textContent = "G";
+    }
+  }
+
+  // Adjustable gate-voltage source: circle with V_G inside, plus a ± indicator.
+  // POS terminal is the gate side; NEG is the return to the – rail.
+  function drawVsource(g, c, check) {
+    const d = componentDims(c);
+    createSvg("rect", { x: 0, y: 0, width: d.w, height: d.h, rx: 16, class: "body" }, g);
+    const cx = d.w / 2, cy = d.h / 2;
+    createSvg("circle", { cx, cy, r: 28, fill: "#f8fafc", stroke: "#0f172a", "stroke-width": 3 }, g);
+    createSvg("text", { x: cx, y: cy - 2, "text-anchor": "middle", "font-weight": 700, fill: "#0f172a", "font-size": 16 }, g).textContent = "V";
+    createSvg("text", { x: cx + 8, y: cy + 6, "text-anchor": "start", "font-weight": 700, fill: "#0f172a", "font-size": 11 }, g).textContent = "G";
+    // ± indicator inside
+    createSvg("text", { x: cx, y: cy + 18, "text-anchor": "middle", fill: "#0f172a", "font-size": 11 }, g).textContent = "±";
+    // leads
+    if (c.rot === "v") {
+      createSvg("path", { d: `M ${cx} -16 L ${cx} ${cy - 28}`, stroke: "#0f172a", "stroke-width": 3, "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx} ${cy + 28} L ${cx} ${d.h + 16}`, stroke: "#0f172a", "stroke-width": 3, "stroke-linecap": "round" }, g);
+    } else {
+      createSvg("path", { d: `M -16 ${cy} L ${cx - 28} ${cy}`, stroke: "#0f172a", "stroke-width": 3, "stroke-linecap": "round" }, g);
+      createSvg("path", { d: `M ${cx + 28} ${cy} L ${d.w + 16} ${cy}`, stroke: "#0f172a", "stroke-width": 3, "stroke-linecap": "round" }, g);
+    }
+    createSvg("text", { x: d.w / 2, y: 16, "text-anchor": "middle" }, g).textContent = "Gate V source";
+    // live readout of current V_G near the body
+    const vg = (typeof gateVoltage === "number") ? gateVoltage.toFixed(2) : "0.00";
+    createSvg("text", { x: d.w / 2, y: d.h - 8, "text-anchor": "middle", class: "subtext" }, g).textContent = vg + " V";
+  }
+
+  function drawTerminals(g, c, check) {
+    terminalDefs(c).forEach(t => {
+      let cls = "terminal";
+      const ref = { compId: c.id, term: t.name };
+      if (selectedTerminal && sameRef(selectedTerminal, ref)) cls += " selected";
+      if (wires.some(w => sameRef(w.a, ref) || sameRef(w.b, ref))) cls += " connected";
+      if (showNodeColors && check) {
+        const kind = classifyNode(check.uf.find(termKey(ref)), check);
+        if (kind !== "other") cls += " node-" + kind;
+      }
+      const circle = createSvg("circle", { cx: t.x, cy: t.y, r: 8, class: cls, tabindex: 0, role: "button", "aria-label": (c.label || TYPE_LABELS[c.type]) + " terminal " + t.name }, g);
+      createSvg("title", {}, circle).textContent = (c.label || TYPE_LABELS[c.type]) + " terminal " + t.name;
+      circle.addEventListener("pointerdown", e => { e.stopPropagation(); onTerminalClick(ref); });
+      circle.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") onTerminalClick(ref); });
+      const off = labelPosition(c, t);
+      createSvg("text", { x: t.x + off.x, y: t.y + off.y, class: "pin-label", "text-anchor": off.anchor || "middle" }, g).textContent = labelText(c, t);
+    });
+  }
+  function labelText(c, t) {
+    if (c.type === "battery") return t.name === "POS" ? "+" : "–";
+    if (c.type === "led") return t.name === "ANODE" ? "+ (anode)" : "– (cathode)";
+    if (c.type === "vsource") return t.name === "POS" ? "+ (to gate)" : "– (to ground)";
+    return t.name;
+  }
+  function labelPosition(c, t) {
+    if (t.dx < 0) return { x: -10, y: 4, anchor: "end" };
+    if (t.dx > 0) return { x: 10, y: 4, anchor: "start" };
+    if (t.dy < 0) return { x: 0, y: -8, anchor: "middle" };
+    return { x: 0, y: 16, anchor: "middle" };
+  }
+
+  function onTerminalClick(ref) {
+    if (burned) { showToast("This LED burned out — clear or reload to continue."); return; }
+    selectedWireId = null; selectedComponentId = ref.compId;
+    if (!selectedTerminal) { selectedTerminal = { ...ref }; showToast("Selected " + terminalName(ref) + ". Click another terminal to wire it."); }
+    else if (sameRef(selectedTerminal, ref)) selectedTerminal = null;
+    else { addWireRefs(selectedTerminal, ref, false); selectedTerminal = null; }
+    render();
+  }
+  function terminalName(ref) { const c = findComponent(ref.compId); return (c ? (c.label || TYPE_LABELS[c.type]) : "part") + "." + ref.term; }
+
+  function toSvgPoint(evt) { const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+
+  function onComponentPointerDown(e, c) {
+    if (e.target.classList && e.target.classList.contains("terminal")) return;
+    e.preventDefault();
+    selectedComponentId = c.id; selectedWireId = null; selectedTerminal = null;
+    const p = toSvgPoint(e);
+    dragging = { id: c.id, dx: p.x - c.x, dy: p.y - c.y };
+    svg.setPointerCapture && svg.setPointerCapture(e.pointerId);
+    render();
+  }
+  window.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const c = findComponent(dragging.id); if (!c) return;
+    const p = toSvgPoint(e);
+    c.x = Math.max(0, Math.min(1040, snap(p.x - dragging.dx)));
+    c.y = Math.max(0, Math.min(670, snap(p.y - dragging.dy)));
+    render();
+  });
+  window.addEventListener("pointerup", () => { if (dragging) { dragging = null; checkCircuit(false); } });
+  svg.addEventListener("pointerdown", () => { selectedComponentId = selectedWireId = selectedTerminal = null; render(); });
+
+  window.addEventListener("keydown", e => {
+    if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
+    if (e.key === "Escape") { selectedTerminal = selectedWireId = selectedComponentId = null; render(); }
+  });
+
+  function nextHint() {
+    const check = checkCircuit(false);
+    const problems = check.diags.filter(d => d.severity === "fail" || d.severity === "warn");
+    if (!problems.length && !burned) { showToast("No active hints: the circuit passes."); return; }
+    if (burned) { callout.textContent = "Hint: the LED burned out. Clear the board (or reload a starter), and this time keep a resistor in series before simulating."; showToast("Hint: reset and keep a resistor in series."); return; }
+    const d = problems[hintIndex % problems.length]; hintIndex++;
+    callout.textContent = "Hint: " + d.title + (d.fix ? " - " + d.fix.replace(/&rarr;/g, "to") : "");
+    showToast("Hint: " + d.title);
+  }
+
+  function toggleSimulation() {
+    const check = checkCircuit(false);
+    simulationOn = !simulationOn;
+    document.getElementById("simulateBtn").textContent = simulationOn ? "Stop simulation" : "Start simulation";
+    if (simulationOn && check.sim.outcome !== "lit") showToast("Simulation shows the symptom (dark, or burnout). Fix red items for a steady, safe glow.");
+    checkCircuit(false);
+  }
+
+  function drawScope() {
+    requestAnimationFrame(drawScope);
+    const check = lastCheck || checkCircuit(true);
+    const w = scope.width, h = scope.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#020617"; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.24)"; ctx.lineWidth = 1;
+    for (let x = 0; x <= w; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let y = 0; y <= h; y += 52) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+    const mode = simulationOn ? (check.sim ? check.sim.scope : "off") : "off";
+    let label = "simulation stopped";
+    ctx.beginPath();
+    if (mode === "dead") {
+      // a single spike then flatline at the bottom (burnout)
+      burnAnim = Math.min(1, burnAnim + 0.03);
+      const spikeX = w * 0.32;
+      for (let x = 0; x < w; x++) {
+        let y = h * 0.9;
+        if (x < spikeX) y = h * 0.9;
+        else if (x < spikeX + 18) y = h * 0.9 - (h * 0.8) * Math.min(1, burnAnim * 3);
+        else y = h * 0.97;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = "#ef4444"; label = "LED burned out";
+    } else if (mode === "on") {
+      const level = h * 0.22;
+      for (let x = 0; x < w; x++) { const y = level + Math.sin(x * 0.05) * 1.2; x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.strokeStyle = "#fde047"; label = "LED on — steady current";
+    } else if (mode === "jfet") {
+      // trace level reflects drain current: high (bright LED) -> top of scope, pinched -> bottom
+      const b = (check.sim && typeof check.sim.brightness === "number") ? check.sim.brightness : 0;
+      const top = h * 0.18, bot = h * 0.88;
+      const level = bot - (bot - top) * b;
+      for (let x = 0; x < w; x++) { const y = level + Math.sin(x * 0.05) * 1.2; x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.strokeStyle = b > 0.02 ? "#fde047" : "#60a5fa";
+      label = b > 0.02 ? ("LED on — I\u2009D \u2248 " + (check.sim.idMa.toFixed(2)) + " mA")
+                       : "channel pinched off — no drain current";
+      // dashed reference lines at I_DSS (top) and zero (bottom)
+      ctx.stroke(); ctx.beginPath();
+      ctx.strokeStyle = "rgba(148,163,184,0.35)"; ctx.setLineDash([4, 6]); ctx.lineWidth = 1;
+      ctx.moveTo(0, top); ctx.lineTo(w, top); ctx.moveTo(0, bot); ctx.lineTo(w, bot); ctx.stroke();
+      ctx.setLineDash([]); ctx.beginPath();
+      ctx.fillStyle = "rgba(148,163,184,0.85)"; ctx.font = "12px ui-monospace, monospace";
+      ctx.fillText("I\u2009DSS", w - 50, top + 14);
+      ctx.fillText("0", w - 18, bot - 4);
+      ctx.fillStyle = "rgba(226,232,240,0.86)"; ctx.font = "20px ui-sans-serif, system-ui, sans-serif";
+      // re-draw the level so it ends up on top of the reference grid
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) { const y = level + Math.sin(x * 0.05) * 1.2; x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.strokeStyle = b > 0.02 ? "#fde047" : "#60a5fa";
+      ctx.lineWidth = 3;
+    } else {
+      const level = h * 0.92;
+      for (let x = 0; x < w; x++) { x === 0 ? ctx.moveTo(x, level) : ctx.lineTo(x, level); }
+      ctx.strokeStyle = simulationOn ? "#64748b" : "#475569";
+      label = !simulationOn ? "simulation stopped" : (mode === "off" ? "no current — LED off" : "no current");
+    }
+    ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = "rgba(226,232,240,0.86)";
+    ctx.font = "20px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText(label, 18, 32);
+  }
+
+  document.querySelectorAll("[data-add]").forEach(btn => btn.addEventListener("click", () => addComponent(btn.dataset.add)));
+  document.getElementById("starterBtn").addEventListener("click", () => loadLayout(false));
+  document.getElementById("correctBtn").addEventListener("click", () => loadLayout(true));
+  const jfetBtn = document.getElementById("jfetStarterBtn");
+  if (jfetBtn) jfetBtn.addEventListener("click", loadJfetLayout);
+  document.getElementById("clearBtn").addEventListener("click", () => { components = []; wires = []; selectedTerminal = selectedComponentId = selectedWireId = null; lastCheck = null; burned = false; render(); checkCircuit(false); });
+
+  // Gate voltage slider — drives gateVoltage and re-runs the checker so the LED dims in real time.
+  const vgSlider = document.getElementById("vgSlider");
+  const vgReadout = document.getElementById("vgReadout");
+  if (vgSlider) {
+    const onSlide = () => {
+      gateVoltage = parseFloat(vgSlider.value);
+      if (vgReadout) vgReadout.textContent = gateVoltage.toFixed(2) + " V";
+      // re-evaluate quickly (silent: skip full re-render of diagnostics/status; just refresh meters & component drawing)
+      const c = checkCircuit(true);
+      updateMeters(c);
+      render();
+    };
+    vgSlider.addEventListener("input", onSlide);
+    vgSlider.addEventListener("change", onSlide);
+  }
+
+  document.getElementById("loadFaultBtn").addEventListener("click", () => {
+    const kind = document.getElementById("faultSelect").value;
+    if (!kind) { showToast("Choose a common mistake first."); return; }
+    loadFault(kind);
+  });
+  document.getElementById("rotateBtn").addEventListener("click", rotateSelected);
+  document.getElementById("deleteBtn").addEventListener("click", deleteSelected);
+  document.getElementById("undoWireBtn").addEventListener("click", undoLastWire);
+  document.getElementById("checkBtn").addEventListener("click", () => checkCircuit(false));
+  document.getElementById("runChecksBtn").addEventListener("click", () => checkCircuit(false));
+  document.getElementById("simulateBtn").addEventListener("click", toggleSimulation);
+  document.getElementById("hintBtn").addEventListener("click", nextHint);
+  document.getElementById("targetBtn").addEventListener("click", e => { showTarget = !showTarget; e.target.textContent = showTarget ? "Hide target" : "Show target"; render(); });
+  document.getElementById("labelsBtn").addEventListener("click", e => { showNodeColors = !showNodeColors; e.target.textContent = showNodeColors ? "Hide node colors" : "Show node colors"; render(); });
+
+  loadLayout(false);
+  requestAnimationFrame(drawScope);
+})();
+</script>
+</body>
+</html>
